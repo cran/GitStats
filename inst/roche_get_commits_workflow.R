@@ -11,7 +11,7 @@ test_gitstats <- create_gitstats() |>
 
 get_commits(
   gitstats_object = test_gitstats,
-  since           = "2024-06-01",
+  since           = "2022-06-01",
   until           = "2024-08-30",
   verbose         = TRUE
 )
