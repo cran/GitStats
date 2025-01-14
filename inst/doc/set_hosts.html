@@ -341,43 +341,44 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 <p>To make <code>GitStats</code> work you need to set hosts after
-creating <code>gitstats_object</code>.</p>
+creating <code>gitstats</code>.</p>
 <p>You can set GitLab host with <code>set_gitlab_host()</code> and
 GitHub host with <code>set_github_host()</code> or both.</p>
-<p>When setting hosts you need to take into account:</p>
+<p>When setting hosts you need to consider:</p>
 <ul>
 <li><p>Do you wish to connect to <code>private</code> or
 <code>public</code> hosts?</p></li>
 <li><p>What <code>scanning scope</code> do you wish to set? Do you want
-to scan specific <code>organizations</code> or <code>repositories</code>
-or maybe whole git platforms?</p></li>
+to scan specific <code>organizations</code> and/or
+<code>repositories</code> or maybe whole git platforms?</p></li>
 <li><p>Do you have <code>tokens</code> set up and stored in your
 environment variables that grant you access to APIs?</p></li>
 </ul>
 <div id="public-and-private-hosts" class="section level2">
 <h2>Public and private hosts</h2>
-<p>If you connect to public hosts you simply call
+<p>If you connect to <strong>public</strong> hosts you simply call
 <code>set_github_host()</code> or <code>set_gitlab_host()</code>
 function without specifying <code>host</code> parameter.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(GitStats)</span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">|&gt;</span></span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>  <span class="fu">set_github_host</span>(</span>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;r-world-devs&quot;</span>, <span class="st">&quot;openpharma&quot;</span>),</span>
 <span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;GITHUB_PAT&quot;</span>)</span>
-<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
 <span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>  <span class="fu">set_gitlab_host</span>(</span>
 <span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;mbtests&quot;</span>),</span>
 <span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;GITLAB_PAT_PUBLIC&quot;</span>)</span>
 <span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>  )</span></code></pre></div>
-<p>If you wish to connect to internal GitHub or GitLab, you need to pass
-names of the hosts to <code>host</code> parameter. Remember also to have
-tokens set up properly for these hosts (on tokens read below).</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">%&gt;%</span></span>
+<p>If you wish to connect to <strong>internal</strong> GitHub or GitLab,
+you need to pass names of the hosts to <code>host</code> parameter.
+Remember also to have tokens set up properly for these hosts (on tokens
+read below).</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">|&gt;</span></span>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="fu">set_github_host</span>(</span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>    <span class="at">host =</span> <span class="st">&quot;github.internal.com&quot;</span>,</span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;org_1&quot;</span>, <span class="st">&quot;org_2&quot;</span>, <span class="st">&quot;org_3&quot;</span>),</span>
 <span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;YOUR_GITHUB_PAT&quot;</span>)</span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
 <span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="fu">set_gitlab_host</span>(</span>
 <span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>    <span class="at">host =</span> <span class="st">&quot;internal.host.com&quot;</span>,</span>
 <span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;internal_org&quot;</span>),</span>
@@ -385,24 +386,24 @@ tokens set up properly for these hosts (on tokens read below).</p>
 <span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  )</span></code></pre></div>
 <div id="api-versions" class="section level3">
 <h3>API versions</h3>
-<p>GitStats is configured to connect to GitHub API (version 3) and
-GitLab API (version 4).</p>
+<p><code>GitStats</code> is configured to connect to GitHub API (version
+3) and GitLab API (version 4).</p>
 </div>
 </div>
 <div id="scanning-scope" class="section level2">
 <h2>Scanning scope</h2>
-<p>When setting hosts you choose what scanning scope of your GitStats
-will be:</p>
+<p>When setting hosts you choose what scanning scope of your
+<code>GitStats</code> will be:</p>
 <ul>
 <li><code>organizations/groups</code> - in this case you need to pass
 character arguments (names of organizations (in case of GitHub) or
 groups (in case of GitLab)) to <code>orgs</code> parameter.</li>
 </ul>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">%&gt;%</span></span>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">|&gt;</span></span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="fu">set_github_host</span>(</span>
 <span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;r-world-devs&quot;</span>, <span class="st">&quot;openpharma&quot;</span>),</span>
 <span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;GITHUB_PAT&quot;</span>)</span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
 <span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="fu">set_gitlab_host</span>(</span>
 <span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;mbtests&quot;</span>),</span>
 <span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;GITLAB_PAT_PUBLIC&quot;</span>)</span>
@@ -412,32 +413,42 @@ groups (in case of GitLab)) to <code>orgs</code> parameter.</li>
 of repositories (<code>{org_name}/{repo_name}</code>) to the
 <code>repos</code> parameter.</li>
 </ul>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">%&gt;%</span></span>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">|&gt;</span></span>
 <span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="fu">set_github_host</span>(</span>
 <span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>    <span class="at">repos =</span> <span class="fu">c</span>(<span class="st">&quot;r-world-devs/GitStats&quot;</span>, <span class="st">&quot;r-world-devs/shinyCohortBuilder&quot;</span>, <span class="st">&quot;openpharma/DataFakeR&quot;</span>),</span>
 <span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;GITHUB_PAT&quot;</span>)</span>
-<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
 <span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="fu">set_gitlab_host</span>(</span>
 <span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>    <span class="at">repos =</span> <span class="st">&quot;mbtests/gitstatstesting&quot;</span>,</span>
 <span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;GITLAB_PAT_PUBLIC&quot;</span>)</span>
 <span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  )</span></code></pre></div>
 <ul>
+<li><code>organizations/groups</code> and <code>repositories</code> -
+you can define both at the same time:</li>
+</ul>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">|&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="fu">set_github_host</span>(</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="st">&quot;openpharma&quot;</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>    <span class="at">repos =</span> <span class="fu">c</span>(<span class="st">&quot;r-world-devs/GitStats&quot;</span>, <span class="st">&quot;r-world-devs/shinyCohortBuilder&quot;</span>),</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;GITHUB_PAT&quot;</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  )</span></code></pre></div>
+<ul>
 <li><code>whole hosts</code> - this is possible for the time being only
 in case of private hosts, as public ones are deemed to be too large. To
-set whole Git platform to be scanned just set hosts without specifying
-<code>orgs</code> or <code>repos</code>. On the other hand, remember
-that to connect with internal host, you need to pass argument to
-<code>host</code> parameter.</li>
+set whole Git platform to be scanned just set hosts <strong>without
+specifying</strong> <code>orgs</code> or <code>repos</code>. On the
+other hand, remember that to connect with internal host, you need to
+pass argument to <code>host</code> parameter.</li>
 </ul>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="fu">set_github_host</span>(</span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>    <span class="at">host =</span> <span class="st">&quot;github.internal.com&quot;</span>,</span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;YOUR_GITHUB_PAT&quot;</span>)</span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="fu">set_gitlab_host</span>(</span>
-<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>    <span class="at">host =</span> <span class="st">&quot;internal.host.com&quot;</span>,</span>
-<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;YOUR_GITLAB_PAT&quot;</span>)</span>
-<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  )</span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">|&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="fu">set_github_host</span>(</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>    <span class="at">host =</span> <span class="st">&quot;github.internal.com&quot;</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;YOUR_GITHUB_PAT&quot;</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="fu">set_gitlab_host</span>(</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>    <span class="at">host =</span> <span class="st">&quot;internal.host.com&quot;</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;YOUR_GITLAB_PAT&quot;</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  )</span></code></pre></div>
 </div>
 <div id="authorize-your-access-with-tokens" class="section level2">
 <h2>Authorize your access with tokens</h2>
@@ -461,13 +472,13 @@ such names as <code>GITHUB_PAT</code> or <code>GITHUB_PAT_*</code> and
 <code>GITLAB_PAT</code> or <code>GITLAB_PAT_*</code> you do not need to
 specify them in <code>set_*_host()</code> functions,
 <code>GitStats</code> will automatically find them.</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="fu">set_github_host</span>(</span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;r-world-devs&quot;</span>, <span class="st">&quot;openpharma&quot;</span>)</span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="fu">set_gitlab_host</span>(</span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;mbtests&quot;</span>)</span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  )</span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>git_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">|&gt;</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="fu">set_github_host</span>(</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;r-world-devs&quot;</span>, <span class="st">&quot;openpharma&quot;</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  <span class="fu">set_gitlab_host</span>(</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;mbtests&quot;</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  )</span></code></pre></div>
 </div>
 
 

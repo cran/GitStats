@@ -353,20 +353,20 @@ for those that have a particular text in a <code>code blob</code>:</p>
 <span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>  <span class="fu">verbose_off</span>()</span>
 <span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a></span>
 <span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>repos_urls <span class="ot">&lt;-</span> <span class="fu">get_repos_urls</span>(</span>
-<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>  <span class="at">gitstats_object =</span> github_stats,</span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>  <span class="at">gitstats =</span> github_stats,</span>
 <span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>  <span class="at">with_code =</span> <span class="st">&quot;shiny&quot;</span></span>
 <span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>)</span></code></pre></div>
 <p>You can limit your search, as it is allowed with GitLab and GitHub
 API search endpoints, to certain files.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>repos_urls <span class="ot">&lt;-</span> <span class="fu">get_repos_urls</span>(</span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="at">gitstats_object =</span> github_stats,</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="at">gitstats =</span> github_stats,</span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">with_code =</span>  <span class="fu">c</span>(<span class="st">&quot;purrr&quot;</span>, <span class="st">&quot;shiny&quot;</span>),</span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">in_files =</span> <span class="fu">c</span>(<span class="st">&quot;DESCRIPTION&quot;</span>, <span class="st">&quot;NAMESPACE&quot;</span>, <span class="st">&quot;renv.lock&quot;</span>)</span>
 <span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>)</span></code></pre></div>
 <p>You can also search for repositories with certain files (do not
 confuse <code>with_files</code> with <code>in_files</code>!).</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>repos_urls <span class="ot">&lt;-</span> <span class="fu">get_repos_urls</span>(</span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="at">gitstats_object =</span> github_stats,</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="at">gitstats =</span> github_stats,</span>
 <span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">with_files =</span> <span class="fu">c</span>(<span class="st">&quot;renv.lock&quot;</span>, <span class="st">&quot;DESCRIPTION&quot;</span>)</span>
 <span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>)</span></code></pre></div>
 <div id="package-usage" class="section level2">
@@ -377,7 +377,7 @@ import packages (look for package name in <code>DESCRIPTION</code> or
 <code>NAMESPACE</code>) or if they load package with
 <code>library()</code> or <code>request()</code>.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>package_usage <span class="ot">&lt;-</span> <span class="fu">get_R_package_usage</span>(</span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">gitstats_object =</span> github_stats,</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">gitstats =</span> github_stats,</span>
 <span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">packages =</span> <span class="fu">c</span>(<span class="st">&quot;shiny&quot;</span>, <span class="st">&quot;purrr&quot;</span>),</span>
 <span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">split_output =</span> <span class="cn">TRUE</span></span>
 <span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>)</span></code></pre></div>
