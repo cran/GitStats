@@ -1,14 +1,14 @@
-fbf16356269da32c474336d01c6a4026 *DESCRIPTION
+09a9ab289b615212c831e86de00985ef *DESCRIPTION
 6703b000fab46bad6cdfb94d4c5eeb83 *LICENSE
 75e0855fc4efde8f9b99ed2c4e975aab *NAMESPACE
-cffedae7b305a91d340d2c3dd2001f6c *NEWS.md
+52a00cab5076870f8fa9d8451b800825 *NEWS.md
 1da599ea60871e820c915313d0b78873 *R/Engine.R
 a2ed240f219ac9a796dd88638dc29b20 *R/EngineGraphQL.R
 c0859ba121bdeaf37b6d292c28b49794 *R/EngineGraphQLGitHub.R
 2ec7fac4f7708c68fa7502d9796e3dd3 *R/EngineGraphQLGitLab.R
 89ace98328a39b7dc6675463ec96c697 *R/EngineRest.R
-5dee60a497d69479e759388792111031 *R/EngineRestGitHub.R
-19976780db8c59a7d27e44c6d1530b97 *R/EngineRestGitLab.R
+edf07424c3a5d8de5aa4a9fac4091549 *R/EngineRestGitHub.R
+adfcca4103fbb42ae5457ba2c79a79a8 *R/EngineRestGitLab.R
 1d3e52d670802838117d4acc0e5453dd *R/GQLQueryGitHub.R
 0e0a28bfaa509e8824efdde9d1d70a55 *R/GQLQueryGitLab.R
 f563e51697d068643992e950e6f6203d *R/GitHost.R
@@ -45,6 +45,7 @@ d520bcd21fe07e95fdcaa2164591bbeb *inst/get_storage_workflow.R
 cc40137d454a5dfb96375167a5875ac1 *inst/package_usage_workflow.R
 53e49da6d413b6f9b470e0f5bb6d99b3 *inst/roche/roche_get_commits_workflow.R
 9f826917c5cf8c17a7dbebfbbd220f15 *inst/roche/roche_get_files_workflow.R
+aa7bf4207768779a8bdcd502b8319508 *inst/roche/roche_get_package_usage.R
 3ecfddc3e9c7f866c4ae1547f7bec6f5 *inst/roche/roche_get_release_logs_workflow.R
 5e20720487f346bbd7e90ce9ec84be87 *inst/roche/roche_get_repos_workflow.R
 14e3c922509b8ba530a2f8b45922f599 *inst/roche/roche_set_hosts.R

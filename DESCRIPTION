@@ -1,6 +1,6 @@
 Package: GitStats
 Title: Standardized Git Repository Data
-Version: 2.2.0
+Version: 2.2.1
 Authors@R: c(
     person(given = "Maciej", family = "Banas", email = "banasmaciek@gmail.com", role = c("aut", "cre")),
     person(given = "Kamil", family = "Koziej", email = "koziej.k@gmail.com", role = "aut"),
@@ -24,11 +24,11 @@ Config/testthat/edition: 3
 VignetteBuilder: knitr
 Language: en-US
 NeedsCompilation: no
-Packaged: 2025-01-14 13:39:06 UTC; banasm
+Packaged: 2025-01-21 09:09:32 UTC; banasm
 Author: Maciej Banas [aut, cre],
   Kamil Koziej [aut],
   Karolina Marcinkowska [aut],
   Matt Secrest [aut]
 Maintainer: Maciej Banas <banasmaciek@gmail.com>
 Repository: CRAN
-Date/Publication: 2025-01-14 14:30:08 UTC
+Date/Publication: 2025-01-21 11:00:02 UTC
