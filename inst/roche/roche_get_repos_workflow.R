@@ -84,3 +84,21 @@ get_repos(git_stats)
 get_repos_urls(gitlab_stats, with_files = c("project_metadata.yaml", "meta_data.yaml"))
 
 get_repos_urls(gitlab_stats, with_code = c("shiny", "purrr"))
+
+gitlab_stats <- create_gitstats() |>
+  set_gitlab_host(
+    host = "code.roche.com"
+  )
+
+get_repos_urls(gitlab_stats, type = "api", with_code = "RocheData")
+get_repos_urls(gitlab_stats, type = "web", with_code = "RocheTemplates")
+get_repos_urls(gitlab_stats, type = "api", with_files = c("meta_data.yaml", "project_metadata.yaml"))
+
+github_stats <- create_gitstats() |>
+  set_github_host(
+    host = "github.roche.com"
+  )
+
+get_repos_urls(github_stats, type = "api", with_code = "RocheData")
+get_repos_urls(github_stats, type = "web", with_code = "RocheTemplates")
+get_repos_urls(github_stats, type = "api", with_files = c("meta_data.yaml", "project_metadata.yaml"))

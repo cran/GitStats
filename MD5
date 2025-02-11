@@ -1,7 +1,7 @@
-09a9ab289b615212c831e86de00985ef *DESCRIPTION
+64c69bad6fdb1564acaac0aca0120fd0 *DESCRIPTION
 6703b000fab46bad6cdfb94d4c5eeb83 *LICENSE
 75e0855fc4efde8f9b99ed2c4e975aab *NAMESPACE
-52a00cab5076870f8fa9d8451b800825 *NEWS.md
+9b1b9012423181757618ad9471f51e6b *NEWS.md
 1da599ea60871e820c915313d0b78873 *R/Engine.R
 a2ed240f219ac9a796dd88638dc29b20 *R/EngineGraphQL.R
 c0859ba121bdeaf37b6d292c28b49794 *R/EngineGraphQLGitHub.R
@@ -11,14 +11,14 @@ edf07424c3a5d8de5aa4a9fac4091549 *R/EngineRestGitHub.R
 adfcca4103fbb42ae5457ba2c79a79a8 *R/EngineRestGitLab.R
 1d3e52d670802838117d4acc0e5453dd *R/GQLQueryGitHub.R
 0e0a28bfaa509e8824efdde9d1d70a55 *R/GQLQueryGitLab.R
-f563e51697d068643992e950e6f6203d *R/GitHost.R
+2ab49b1d998e8bc4bfee1bf9619d6c2e *R/GitHost.R
 c805ab1fde7493d30f8e4d5d3694a498 *R/GitHostGitHub.R
 8dc9d6b1511fdf007cde0511c9380afb *R/GitHostGitLab.R
 a65c1941e4bfecc15327087c3e1eb4aa *R/GitStats-package.R
 19b1ae4b2980307b945a3d2aa35f91ed *R/GitStats.R
 b260d10f31f6750ece1d9cdc3d23b8b5 *R/get_commits.R
 1111e3303aabe9d01228025a0d3aea13 *R/get_files.R
-268c7b8c9a14d47527575d657305599f *R/get_repos.R
+23b4d073ddd117fd7e7589cb87051fb2 *R/get_repos.R
 a6bf788322e4969b3e2fd1023840b514 *R/gitstats_functions.R
 3cb96312b01ded1b479be276f5ca5467 *R/global.R
 f9848f64dedbdc854bb4f2f8c1d79f46 *R/message_handler.R
@@ -47,7 +47,7 @@ cc40137d454a5dfb96375167a5875ac1 *inst/package_usage_workflow.R
 9f826917c5cf8c17a7dbebfbbd220f15 *inst/roche/roche_get_files_workflow.R
 aa7bf4207768779a8bdcd502b8319508 *inst/roche/roche_get_package_usage.R
 3ecfddc3e9c7f866c4ae1547f7bec6f5 *inst/roche/roche_get_release_logs_workflow.R
-5e20720487f346bbd7e90ce9ec84be87 *inst/roche/roche_get_repos_workflow.R
+cfd2fd876a0e171f5c7d1b4a17373af8 *inst/roche/roche_get_repos_workflow.R
 14e3c922509b8ba530a2f8b45922f599 *inst/roche/roche_set_hosts.R
 552786b191e73644fe312ca470c73df8 *inst/set_hosts.R
 203e7dc680c2b31b9e5845103ce8b410 *inst/set_many_repos.R
@@ -61,7 +61,7 @@ a2cdc1a8798bdb93cd1e23f240cad0e4 *man/get_commits_stats.Rd
 362dee4b92be111670cdbd9e42ef6dc9 *man/get_files.Rd
 fd8295bbec23bbd8aa6738796143d996 *man/get_release_logs.Rd
 13630d42db3cf4b9238253eaf9ba6c10 *man/get_repos.Rd
-c86044bc5ea250e89006cd88078f6016 *man/get_repos_urls.Rd
+ca706917505c04bfc28a0441592fa858 *man/get_repos_urls.Rd
 e0b7abb73a78f8974e5d99fe5ad4c04f *man/get_storage.Rd
 1ef5d412a47a3b06e233745d8f8dc14e *man/get_users.Rd
 71144c12c6e6ef36f8652611dcf3675c *man/is_verbose.Rd
@@ -116,7 +116,7 @@ f4a3f0c654efe147ca53b7bbeb3639f5 *tests/testthat/test-04-get_files_content-GitHu
 153e92a057405875a3c521d40e00d655 *tests/testthat/test-get_release-GitLab.R
 ef336ab3c51cb4e256b02beea22368cd *tests/testthat/test-get_release-GitStats.R
 b3901ecec68cf94091732df7baa9d61d *tests/testthat/test-get_storage.R
-16ab0a9e2140f7272f2862d641109c53 *tests/testthat/test-get_urls_repos-GitHub.R
+5784030ba556a4949c6e6a41aa2acfbe *tests/testthat/test-get_urls_repos-GitHub.R
 82d39a0c7afa22b57e1b8cd6c129e23a *tests/testthat/test-get_urls_repos-GitLab.R
 1a7530f6ad3be689dfd73fefe097855a *tests/testthat/test-get_urls_repos-GitStats.R
 40652999e0847e97c173dcc7f0528e3e *tests/testthat/test-get_usage_R_package.R
