@@ -60,3 +60,31 @@ gitlab_stats <- create_gitstats() |>
   )
 get_files(gitlab_stats)
 get_files(gitlab_stats)
+
+# Issue #605
+
+gitlab_stats <- create_gitstats() |>
+  set_gitlab_host(
+    host = "code.roche.com",
+    repos = "datascience/rwd/546_copd_marketscan"
+  )
+get_files(gitlab_stats)
+get_files(gitlab_stats, pattern = "\\.md")
+get_files(gitlab_stats, pattern = "\\.R$")
+get_files(gitlab_stats, pattern = "*")
+
+gitai_stats <- create_gitstats() |>
+  set_github_host(
+    repos = "r-world-devs/GitAI"
+  )
+get_files(gitai_stats)
+get_files(gitai_stats, pattern = "\\.md")
+get_files(gitai_stats, pattern = "\\.R$")
+get_files(gitai_stats, pattern = "*")
+
+rwd_stats <- create_gitstats() |>
+  set_github_host(
+    orgs = "r-world-devs"
+  )
+
+get_files(rwd_stats) # fails
