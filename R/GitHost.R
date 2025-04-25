@@ -13,32 +13,32 @@ GitHost <- R6::R6Class(
     #' @param verbose A logical, `TRUE` by default. If `FALSE` messages and printing
     #'   output is switched off.
     #' @return A new `GitHost` object.
-    initialize = function(orgs    = NA,
-                          repos   = NA,
-                          token   = NA,
-                          host    = NA,
+    initialize = function(orgs = NA,
+                          repos = NA,
+                          token = NA,
+                          host = NA,
                           verbose = NA,
-                          .error  = TRUE) {
+                          .error = TRUE) {
       private$set_api_url(host)
       private$set_web_url(host)
       private$set_endpoints()
       private$check_if_public(host)
       private$set_token(
-        token   = token,
+        token = token,
         verbose = verbose
       )
       private$set_graphql_url()
       private$set_searching_scope(
-        orgs    = orgs,
-        repos   = repos,
+        orgs = orgs,
+        repos = repos,
         verbose = verbose
       )
       private$setup_engines()
       private$set_orgs_and_repos(
-        orgs    = orgs,
-        repos   = repos,
+        orgs = orgs,
+        repos = repos,
         verbose = verbose,
-        .error  = .error
+        .error = .error
       )
     },
 
@@ -156,15 +156,15 @@ GitHost <- R6::R6Class(
         )
       }
       commits_from_orgs <- private$get_commits_from_orgs(
-        since    = since,
-        until    = until,
-        verbose  = verbose,
+        since = since,
+        until = until,
+        verbose = verbose,
         progress = progress
       )
       commits_from_repos <- private$get_commits_from_repos(
-        since    = since,
-        until    = until,
-        verbose  = verbose,
+        since = since,
+        until = until,
+        verbose = verbose,
         progress = progress
       )
       commits_table <- list(
@@ -200,16 +200,19 @@ GitHost <- R6::R6Class(
         issues_from_repos
       ) |>
         purrr::list_rbind() |>
-        dplyr::distinct() |>
-        dplyr::filter(
-          created_at >= since & created_at <= until
-        )
-      if (!is.null(state)) {
-        type <- state
+        dplyr::distinct()
+      if (nrow(issues_table) > 0) {
         issues_table <- issues_table |>
           dplyr::filter(
-            state == type
+            created_at >= since & created_at <= until
           )
+        if (!is.null(state)) {
+          type <- state
+          issues_table <- issues_table |>
+            dplyr::filter(
+              state == type
+            )
+        }
       }
       return(issues_table)
     },
@@ -745,28 +748,49 @@ GitHost <- R6::R6Class(
       if (any(c("all", "org") %in% private$searching_scope)) {
         graphql_engine <- private$engines$graphql
         purrr::map(private$orgs, function(org) {
-          type <- attr(org, "type") %||% "organization"
-          org <- utils::URLdecode(org)
+          owner_type <- attr(org, "type") %||% "organization"
           if (!private$scan_all && verbose) {
             show_message(
               host = private$host_name,
               engine = "graphql",
-              scope = org,
+              scope = utils::URLdecode(org),
               information = "Pulling repositories"
             )
           }
           repos_from_org <- graphql_engine$get_repos_from_org(
-            org = org,
-            type = type
+            org = utils::URLdecode(org),
+            owner_type = owner_type,
+            verbose = verbose
           )
-          if (length(repos_from_org) > 0) {
-            repos_table <- repos_from_org |>
-              graphql_engine$prepare_repos_table(
-                org = unclass(org)
-              ) |>
-              dplyr::filter(organization == unclass(org))
+          if (!inherits(repos_from_org, "graphql_error")) {
+            if (length(repos_from_org) > 0) {
+              repos_table <- repos_from_org |>
+                graphql_engine$prepare_repos_table(
+                  org = unclass(utils::URLdecode(org))
+                ) |>
+                dplyr::filter(organization == unclass(utils::URLdecode(org)))
+            } else {
+              repos_table <- NULL
+            }
           } else {
-            repos_table <- NULL
+            if (verbose) {
+              cli::cli_alert_info("Switching to REST API")
+              show_message(
+                host = private$host_name,
+                engine = "rest",
+                scope = org,
+                information = "Pulling repositories"
+              )
+            }
+            rest_engine <- private$engines$rest
+            repos_table <- rest_engine$get_repos_from_org(
+              org = org,
+              output = "full_table",
+              verbose = verbose
+            ) |>
+              rest_engine$prepare_repos_table(
+                org = org
+              )
           }
           return(repos_table)
         }, .progress = progress) |>
@@ -781,22 +805,49 @@ GitHost <- R6::R6Class(
           owners = names(private$orgs_repos)
         )
         purrr::map(orgs, function(org) {
-          type <- attr(org, "type") %||% "organization"
-          org <- utils::URLdecode(org)
+          owner_type <- attr(org, "type") %||% "organization"
           if (!private$scan_all && verbose) {
             show_message(
               host = private$host_name,
               engine = "graphql",
-              scope = set_repo_scope(org, private),
+              scope = set_repo_scope(utils::URLdecode(org), private),
               information = "Pulling repositories"
             )
           }
-          repos_table <- graphql_engine$get_repos_from_org(
-            org = org,
-            type = type
-          ) |>
-            graphql_engine$prepare_repos_table() |>
-            dplyr::filter(repo_name %in% private$orgs_repos[[org]])
+          repos_from_org <- graphql_engine$get_repos_from_org(
+            org = utils::URLdecode(org),
+            owner_type = owner_type,
+            verbose = verbose
+          )
+          if (!inherits(repos_from_org, "graphql_error")) {
+            if (length(repos_from_org) > 0) {
+              repos_table <- repos_from_org |>
+                graphql_engine$prepare_repos_table() |>
+                dplyr::filter(repo_name %in% private$orgs_repos[[utils::URLdecode(org)]])
+            } else {
+              repos_table <- NULL
+            }
+          } else {
+            if (verbose) {
+              cli::cli_alert_info("Switching to REST API")
+              show_message(
+                host = private$host_name,
+                engine = "rest",
+                scope = org,
+                information = "Pulling repositories"
+              )
+            }
+            rest_engine <- private$engines$rest
+            repos_table <- rest_engine$get_repos_from_org(
+              org = org,
+              repos = private$orgs_repos[[org]],
+              output = "full_table",
+              verbose = verbose
+            ) |>
+              rest_engine$prepare_repos_table(
+                org = org
+              )
+          }
           return(repos_table)
         }, .progress = progress) |>
           purrr::list_rbind()
@@ -951,16 +1002,17 @@ GitHost <- R6::R6Class(
       }
       repos_output <- private$parse_search_response(
         search_response = search_response,
-        output = output
+        output = output,
+        verbose = verbose
       )
       return(repos_output)
     },
 
     get_repos_with_code_from_orgs = function(code,
                                              in_files = NULL,
-                                             in_path  = FALSE,
-                                             output   = "table",
-                                             verbose  = TRUE,
+                                             in_path = FALSE,
+                                             output = "table",
+                                             verbose = TRUE,
                                              progress = TRUE) {
       if (any(private$searching_scope %in% c("org", "all"))) {
         repos_list <- purrr::map(private$orgs, function(org) {
@@ -996,7 +1048,8 @@ GitHost <- R6::R6Class(
           private$parse_search_response(
             search_response = search_response,
             org = org,
-            output = output
+            output = output,
+            verbose = verbose
           )
         }, .progress = if (progress) {
           "Pulling repositories from organizations..."
@@ -1051,13 +1104,14 @@ GitHost <- R6::R6Class(
         }
         repos_output <- private$parse_search_response(
           search_response = search_response,
-          output = output
+          output = output,
+          verbose = verbose
         )
         return(repos_output)
       }
     },
 
-    parse_search_response = function(search_response, org = NULL, output) {
+    parse_search_response = function(search_response, org = NULL, output, verbose = TRUE) {
       if (length(search_response) > 0) {
         repos_ids <- private$get_repos_ids(search_response)
         graphql_engine <- private$engines$graphql
@@ -1065,7 +1119,8 @@ GitHost <- R6::R6Class(
           owner_type <- attr(org, "type") %||% "organization"
           repos_from_org <- graphql_engine$get_repos_from_org(
             org = org,
-            type = owner_type
+            owner_type = owner_type,
+            verbose = verbose
           )
           repos_response <- repos_from_org |>
             purrr::keep(function(repo) {
@@ -1078,7 +1133,8 @@ GitHost <- R6::R6Class(
             })
         } else {
           repos_response <- graphql_engine$get_repos(
-            repos_ids = repos_ids
+            repos_ids = repos_ids,
+            verbose = verbose
           )
         }
         if (output != "raw") {
@@ -1290,10 +1346,10 @@ GitHost <- R6::R6Class(
               information = glue::glue("Pulling files content: [{paste0(file_path, collapse = ', ')}]")
             )
           }
-          type <- attr(org, "type") %||% "organization"
+          owner_type <- attr(org, "type") %||% "organization"
           graphql_engine$get_files_from_org(
             org = org,
-            type = type,
+            owner_type = owner_type,
             repos = NULL,
             file_paths = file_path,
             verbose = verbose,
@@ -1327,10 +1383,10 @@ GitHost <- R6::R6Class(
               information = glue::glue("Pulling files content: [{paste0(file_path, collapse = ', ')}]")
             )
           }
-          type <- attr(org, "type") %||% "organization"
+          owner_type <- attr(org, "type") %||% "organization"
           graphql_engine$get_files_from_org(
             org = org,
-            type = type,
+            owner_type = owner_type,
             repos = private$orgs_repos[[org]],
             file_paths = file_path,
             verbose = verbose,
@@ -1364,10 +1420,10 @@ GitHost <- R6::R6Class(
             information = "Pulling files from files structure"
           )
         }
-        type <- attr(org, "type") %||% "organization"
+        owner_type <- attr(org, "type") %||% "organization"
         graphql_engine$get_files_from_org(
           org = org,
-          type = type,
+          owner_type = owner_type,
           repos = repos,
           host_files_structure = files_structure,
           verbose = verbose,
@@ -1412,10 +1468,10 @@ GitHost <- R6::R6Class(
               information = user_info
             )
           }
-          type <- attr(org, "type") %||% "organization"
+          owner_type <- attr(org, "type") %||% "organization"
           graphql_engine$get_files_structure_from_org(
             org = org,
-            type = type,
+            owner_type = owner_type,
             pattern = pattern,
             depth = depth,
             verbose = verbose,
@@ -1461,10 +1517,10 @@ GitHost <- R6::R6Class(
               information = user_info
             )
           }
-          type <- attr(org, "type") %||% "organization"
+          owner_type <- attr(org, "type") %||% "organization"
           graphql_engine$get_files_structure_from_org(
             org = org,
-            type = type,
+            owner_type = owner_type,
             repos = private$repos,
             pattern = pattern,
             depth = depth,

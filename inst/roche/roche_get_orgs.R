@@ -5,7 +5,7 @@ github_stats <- create_gitstats() |>
 
 gitlab_stats <- create_gitstats() |>
   set_gitlab_host(
-    host = "code.roche.com"
+    host = "https://code.roche.com"
   )
 
 get_orgs(github_stats)
@@ -21,7 +21,6 @@ git_stats <- create_gitstats() |>
   )
 
 get_orgs(git_stats)
-
 
 gitlab_stats <- create_gitstats() |>
   set_gitlab_host(

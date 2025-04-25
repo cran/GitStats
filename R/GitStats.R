@@ -97,14 +97,21 @@ GitStats <- R6::R6Class(
           with_files = with_files,
           verbose = verbose,
           progress = progress
-        ) |>
-          private$set_object_class(
+        )
+        if (nrow(repositories) > 0) {
+          repositories <- private$set_object_class(
+            object = repositories,
             class = "gitstats_repos",
             attr_list = args_list
           )
-        private$save_to_storage(
-          table = repositories
-        )
+          private$save_to_storage(
+            table = repositories
+          )
+        } else {
+          if (verbose) {
+            cli::cli_alert_warning("No repositories found.")
+          }
+        }
       } else {
         repositories <- private$get_from_storage(
           table = "repositories",
@@ -188,14 +195,21 @@ GitStats <- R6::R6Class(
           until = until,
           verbose = verbose,
           progress = progress
-        ) |>
-          private$set_object_class(
+        )
+        if (nrow(commits) > 0) {
+          commits <- private$set_object_class(
+            object = commits,
             class = "gitstats_commits",
             attr_list = args_list
           )
-        private$save_to_storage(
-          table = commits
-        )
+          private$save_to_storage(
+            table = commits
+          )
+        } else {
+          if (verbose) {
+            cli::cli_alert_warning("No commits found.")
+          }
+        }
       } else {
         commits <- private$get_from_storage(
           table = "commits",
@@ -229,14 +243,21 @@ GitStats <- R6::R6Class(
           state = state,
           verbose = verbose,
           progress = progress
-        ) |>
-          private$set_object_class(
+        )
+        if (nrow(issues) > 0) {
+          issues <- private$set_object_class(
+            object = issues,
             class = "gitstats_issues",
             attr_list = args_list
           )
-        private$save_to_storage(
-          table = issues
-        )
+          private$save_to_storage(
+            table = issues
+          )
+        } else {
+          if (verbose) {
+            cli::cli_alert_warning("No issues found.")
+          }
+        }
       } else {
         issues <- private$get_from_storage(
           table = "issues",
@@ -336,12 +357,19 @@ GitStats <- R6::R6Class(
           until = until,
           verbose = verbose,
           progress = progress
-        ) |>
-          private$set_object_class(
+        )
+        if (nrow(release_logs) > 0) {
+          release_logs <- private$set_object_class(
+            object = release_logs,
             class = "gitstats_releases",
             attr_list = args_list
           )
-        private$save_to_storage(release_logs)
+          private$save_to_storage(release_logs)
+        } else {
+          if (verbose) {
+            cli::cli_alert_warning("No release logs found.")
+          }
+        }
       } else {
         release_logs <- private$get_from_storage(
           table = "release_logs",
@@ -372,23 +400,23 @@ GitStats <- R6::R6Class(
       )
       if (trigger) {
         R_package_usage <- private$get_repos_with_R_packages_from_hosts(
-          packages     = packages,
+          packages = packages,
           only_loading = only_loading,
           split_output = split_output,
-          verbose      = verbose
+          verbose = verbose
         )
         if ((!split_output && nrow(R_package_usage) > 0) ||
               (split_output && any(purrr::map_lgl(R_package_usage, ~ nrow(.) > 0)))) {
           R_package_usage <- private$set_object_class(
-            object    = R_package_usage,
-            class     = "gitstats_package_usage",
+            object = R_package_usage,
+            class = "gitstats_package_usage",
             attr_list = args_list
           )
           private$save_to_storage(R_package_usage)
         }
       } else {
         R_package_usage <- private$get_from_storage(
-          table   = "R_package_usage",
+          table = "R_package_usage",
           verbose = verbose
         )
       }
@@ -444,13 +472,13 @@ GitStats <- R6::R6Class(
 
     # @field storage for results
     storage = list(
-      repositories    = NULL,
-      commits         = NULL,
-      users           = NULL,
-      files           = NULL,
+      repositories = NULL,
+      commits = NULL,
+      users = NULL,
+      files = NULL,
       files_structure = NULL,
       R_package_usage = NULL,
-      release_logs    = NULL
+      release_logs = NULL
     ),
 
     # Add new host
@@ -918,35 +946,13 @@ GitStats <- R6::R6Class(
         glue::glue("require({package_name})")
       )
       repos_using_package <- purrr::map(package_usage_phrases, ~ {
-        repos_using_package <- tryCatch({
-          private$get_repos_from_hosts(
-            with_code = .,
-            force_orgs = FALSE,
-            output = "table",
-            verbose = FALSE,
-            progress = FALSE
-          )
-        }, error = function(e) {
-          if (grepl("Reached 10 thousand response limit.", e$parent$parent$message)) {
-            if (verbose) {
-              cli::cli_alert_warning(e$parent$parent$message)
-              cli::cli_alert_info("I will cut search responses into `orgs`.")
-            }
-            invisible(private$get_orgs_from_hosts(output = "only_names", verbose = verbose))
-            private$get_repos_from_hosts(
-              with_code = .,
-              force_orgs = TRUE,
-              output = "table",
-              verbose = FALSE,
-              progress = verbose
-            )
-          } else {
-            if (verbose) {
-              cli::cli_alert_warning(e$parent$parent$message)
-            }
-            return(NULL)
-          }
-        })
+        repos_using_package <- private$get_repos_from_hosts(
+          with_code = .,
+          force_orgs = FALSE,
+          output = "table",
+          verbose = FALSE,
+          progress = FALSE
+        )
         if (!is.null(repos_using_package) && nrow(repos_using_package) > 0) {
           repos_using_package$package_usage <- "library"
         }

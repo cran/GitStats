@@ -13,8 +13,28 @@ roche_stats <- create_gitstats() |>
     host = "code.roche.com"
   )
 
+roche_stats |> get_repos_with_R_packages(
+  packages = c("overflow", "GitStats"),
+  verbose  = TRUE
+)
+
+rtables_usage <- roche_stats |> get_repos_with_R_packages(
+  packages = "rtables",
+  verbose  = TRUE
+)
+
 chevron_usage <- roche_stats |> get_repos_with_R_packages(
   packages = "chevron",
+  verbose  = TRUE
+)
+
+roak_usage <- roche_stats |> get_repos_with_R_packages(
+  packages = "roak",
+  verbose  = TRUE
+)
+
+tern_usage <- roche_stats |> get_repos_with_R_packages(
+  packages = "tern",
   verbose  = TRUE
 )
 
@@ -122,4 +142,9 @@ cohort_builder_usage <- git_stats |>
   get_repos_with_R_packages(
     packages = c("cohortBuilder", "shinyCohortBuilder"),
     verbose  = TRUE
+  )
+
+roche_stats <- create_gitstats() |>
+  set_gitlab_host(
+    host = "code.roche.com", repos = "datascience/general/278_SCE-scheduled-metrics"
   )

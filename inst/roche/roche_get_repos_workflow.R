@@ -45,6 +45,8 @@ gitlab_stats <- create_gitstats() |>
     orgs = "RWDInsightsEngineering"
   )
 
+get_repos(gitlab_stats)
+
 gitlab_stats <- create_gitstats() |>
   set_gitlab_host(
     host = "code.roche.com",
@@ -87,6 +89,7 @@ git_stats <- create_gitstats() |>
   )
 
 get_repos(git_stats)
+get_repos(git_stats, with_files = "DESCRIPTION")
 get_repos_urls(git_stats, with_files = c("project_metadata.yaml", "meta_data.yaml"))
 
 get_repos_urls(git_stats, with_code = c("shiny", "purrr"))
@@ -142,3 +145,11 @@ create_gitstats() |>
   set_github_host(
     orgs = c("openpharma")
   ) |> get_repos_urls(type = "api", with_files = c("meta_data.yaml", "project_metadata.yaml"))
+
+gitlab_stats <- create_gitstats() |>
+  set_gitlab_host(
+    host = "code.roche.com",
+    orgs = "pred-clinops"
+  )
+
+get_repos(gitlab_stats)
