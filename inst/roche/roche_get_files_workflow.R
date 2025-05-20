@@ -44,6 +44,7 @@ gitlab_stats <- create_gitstats() |>
     orgs = "RWDInsightsEngineering",
     repos = "datascience/rwd/543_eylea_hd"
   )
+get_repos_trees(gitlab_stats)
 get_files(gitlab_stats, file_path = "DESCRIPTION")
 
 banasm_stats <- create_gitstats() |>

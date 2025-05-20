@@ -6,6 +6,8 @@ gitlab_stats <- create_gitstats() |>
 
 get_repos(gitlab_stats)
 
+get_repos_trees(gitlab_stats)
+
 get_repos_urls(gitlab_stats)
 
 get_repos_urls(gitlab_stats, with_files = "README.md")

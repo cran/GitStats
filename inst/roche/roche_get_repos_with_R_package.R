@@ -1,3 +1,20 @@
+rm_api <- RocheMeta::RocheMetaAPI$new()
+packages <- rm_api$get_projects(tags = c("R package"))
+package_names <- packages |>
+  purrr::map_chr(~ .$name) |>
+  unique()
+
+git_stats <- create_gitstats() |>
+  set_gitlab_host(
+    host = "code.roche.com"
+  ) |>
+  set_github_host(
+    host = "github.roche.com"
+  )
+
+package_names <- package_names[!grepl(" ", package_names)]
+package_names <- package_names[!package_names %in% c("data", "project", "repo")]
+
 rwdie_package_names <- c("cohortBuilder", "RocheDeploy", "RocheTemplates")
 
 roche_stats <- create_gitstats() |>
@@ -8,13 +25,18 @@ roche_stats <- create_gitstats() |>
     host = "github.roche.com"
   )
 
-roche_stats <- create_gitstats() |>
+gitlab_roche_stats <- create_gitstats() |>
   set_gitlab_host(
     host = "code.roche.com"
   )
 
+gitlab_roche_stats |> get_repos_with_R_packages(
+  packages = package_names,
+  verbose  = TRUE
+)
+
 roche_stats |> get_repos_with_R_packages(
-  packages = c("overflow", "GitStats"),
+  packages = package_names,
   verbose  = TRUE
 )
 

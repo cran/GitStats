@@ -1,3 +1,8 @@
+# GitStats 2.3.2
+
+- Added `get_repos_trees()` function (#614).
+- Fixed errors when pulling data on repositories with code (#634).
+
 # GitStats 2.3.1
 
 A patch release with hot fixes to functions pulling repositories with code.
