@@ -21,9 +21,23 @@ create_gitstats() |>
   get_commits(since = "2020-01-01")
 
 create_gitstats() |>
+  set_gitlab_host(
+    host = "code.roche.com",
+    repos = c("nest/insights-engineering/rtables")
+  ) |>
+  get_commits(since = "2020-01-01")
+
+create_gitstats() |>
+  set_gitlab_host(
+    host = "code.roche.com",
+    orgs = "nest/insights-engineering"
+  ) |>
+  get_commits(since = "2022-01-01")
+
+create_gitstats() |>
   set_github_host(
     host = "github.roche.com",
-    orgs = "PHC"
+    orgs = c("E4ATI", "RWDScodeshare", "PHC")
   ) |>
   get_commits(since = "2022-01-01")
 

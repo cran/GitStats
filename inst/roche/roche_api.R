@@ -9,45 +9,40 @@ roche_projects <- roche_projects |>
   dplyr::slice(1) |>
   dplyr::ungroup()
 
-github_repos <- roche_projects$web_url[grep("github.com", roche_projects$web_url)]
-github_roche_repos <- roche_projects$web_url[grep("github.roche.com", roche_projects$web_url)]
-gitlab_roche_repos <- roche_projects$web_url[grep("code.roche.com", roche_projects$web_url)]
-
-github_repos <- gsub("https://github.com/", "", github_repos)
-github_roche_repos <- gsub("https://github.roche.com/", "", github_roche_repos)
-gitlab_repos <- gsub("https://code.roche.com/", "", gitlab_roche_repos)
+github_orgs <- roche_projects |> dplyr::filter(host == "github.com") |> dplyr::select(org) |> unlist() |> unique()
+github_roche_orgs <- roche_projects |> dplyr::filter(host == "github.roche.com") |> dplyr::select(org) |> unlist() |> unique()
+gitlab_roche_orgs <- roche_projects |> dplyr::filter(host == "code.roche.com") |> dplyr::select(org) |> unlist() |> unique()
 
 git_stats <- create_gitstats() |>
   set_github_host(
-    repos = github_repos,
+    orgs = github_orgs,
     token = Sys.getenv("GITHUB_PAT"),
     .error = FALSE
   ) |>
   set_github_host(
     host = "github.roche.com",
-    repos = github_roche_repos,
+    orgs = github_roche_orgs,
     token = Sys.getenv("GITHUB_PAT_ROCHE"),
     .error = FALSE
   ) |>
   set_gitlab_host(
     host = "code.roche.com",
-    repos = gitlab_repos,
+    orgs = gitlab_roche_orgs,
     token = Sys.getenv("GITLAB_PAT"),
     .error = FALSE
   )
 
 commits_table <- git_stats |>
   GitStats::get_commits(
-    since = "2020-01-01"
+    since = "2022-01-01"
   )
 
 releases_table <- git_stats |>
   GitStats::get_release_logs(
-    since = "2020-01-01"
+    since = "2022-01-01"
   )
-
 
 issues_table <- git_stats |>
   GitStats::get_issues(
-    since = "2020-01-01"
+    since = "2022-01-01"
   )
