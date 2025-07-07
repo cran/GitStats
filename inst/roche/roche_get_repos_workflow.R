@@ -155,3 +155,12 @@ gitlab_stats <- create_gitstats() |>
   )
 
 get_repos(gitlab_stats)
+
+
+test_gitstats <- create_gitstats() |>
+  set_gitlab_host(
+    host = "code.roche.com",
+    orgs = "rapp/aosp/platform/packages/modules"
+  )
+
+get_repos_trees(test_gitstats, depth = 0)

@@ -35,10 +35,3 @@ knitr::opts_chunk$set(
 #   with_files = c("renv.lock", "DESCRIPTION")
 # )
 
-## ----eval = FALSE-------------------------------------------------------------
-# package_usage <- get_repos_with_R_packages(
-#   gitstats = github_stats,
-#   packages = c("shiny", "purrr"),
-#   split_output = TRUE
-# )
-

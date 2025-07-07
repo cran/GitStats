@@ -99,7 +99,7 @@ GitHost <- R6::R6Class(
       }
       if (output == "table") {
         repos_table <- private$add_repo_api_url(repos_table) %>%
-          private$add_platform()
+          private$add_githost_info()
         if (add_contributors) {
           repos_table <- private$get_repos_contributors(
             repos_table = repos_table,
@@ -273,11 +273,11 @@ GitHost <- R6::R6Class(
                                    depth,
                                    verbose  = TRUE,
                                    progress = TRUE) {
-      if (private$scan_all) {
-        cli::cli_abort(c(
-          "x" = "This feature is not applicable to scan whole Git Host (time consuming).",
-          "i" = "Set `orgs` or `repos` arguments in `set_*_host()` if you wish to run this function."
-        ), call = NULL)
+      if (private$scan_all && is.null(private$orgs)) {
+        private$orgs <- private$get_orgs_from_host(
+          output = "only_names",
+          verbose = verbose
+        )
       }
       files_structure_from_orgs <- private$get_files_structure_from_orgs(
         pattern = pattern,
@@ -451,26 +451,16 @@ GitHost <- R6::R6Class(
     # Check if both repos and orgs are defined or not.
     set_searching_scope = function(orgs, repos, verbose) {
       if (is.null(repos) && is.null(orgs)) {
-        if (private$is_public) {
-          cli::cli_abort(c(
-            "You need to specify `orgs` or/and `repos` for public Git Host.",
-            "x" = "Host will not be added.",
-            "i" = "Add organizations to your `orgs` and/or repositories to
-            `repos` parameter."
-          ),
-          call = NULL)
-        } else {
-          if (verbose) {
-            cli::cli_alert_info(cli::col_grey(
-              "No `orgs` nor `repos` specified."
-            ))
-            cli::cli_alert_info(cli::col_grey(
-              "Searching scope set to [all]."
-            ))
-          }
-          private$searching_scope <- "all"
-          private$scan_all <- TRUE
+        if (verbose) {
+          cli::cli_alert_info(cli::col_grey(
+            "No `orgs` nor `repos` specified."
+          ))
+          cli::cli_alert_info(cli::col_grey(
+            "Searching scope set to [all]."
+          ))
         }
+        private$searching_scope <- "all"
+        private$scan_all <- TRUE
       }
       if (!is.null(repos)) {
         private$searching_scope <- c(private$searching_scope, "repo")
@@ -1233,11 +1223,11 @@ GitHost <- R6::R6Class(
         )
     },
 
-    add_platform = function(repos_table) {
+    add_githost_info = function(repos_table) {
       if (!is.null(repos_table) && nrow(repos_table) > 0) {
         dplyr::mutate(
           repos_table,
-          platform = retrieve_platform(api_url)
+          githost = retrieve_githost(api_url)
         )
       }
     },
@@ -1453,16 +1443,16 @@ GitHost <- R6::R6Class(
                                              depth,
                                              verbose  = TRUE,
                                              progress = TRUE) {
-      if ("org" %in% private$searching_scope) {
+      if (any(c("all", "org") %in% private$searching_scope)) {
         graphql_engine <- private$engines$graphql
         files_structure_list <- purrr::map(private$orgs, function(org) {
           if (verbose) {
             user_info <- if (!is.null(pattern)) {
               glue::glue(
-                "Pulling files \U1F333 structure...[files matching pattern: '{paste0(pattern, collapse = '|')}']"
+                "Pulling repos \U1F333 [files matching pattern: '{paste0(pattern, collapse = '|')}']"
               )
             } else {
-              glue::glue("Pulling files \U1F333 structure...")
+              glue::glue("Pulling repos \U1F333")
             }
             show_message(
               host = private$host_name,
@@ -1508,10 +1498,10 @@ GitHost <- R6::R6Class(
           if (verbose) {
             user_info <- if (!is.null(pattern)) {
               glue::glue(
-                "Pulling files \U1F333 structure...[files matching pattern: '{paste0(pattern, collapse = '|')}']"
+                "Pulling repos \U1F333 [files matching pattern: '{paste0(pattern, collapse = '|')}']"
               )
             } else {
-              glue::glue("Pulling files \U1F333 structure...")
+              glue::glue("Pulling repos \U1F333")
             }
             show_message(
               host = private$host_name,
