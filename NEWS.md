@@ -1,3 +1,16 @@
+# GitStats 2.3.6
+
+A minor release with some substantial performance improvements on searching repositories by code, new features like filtering repositories data by languages and adding new columns in `get_repos()` and `get_files()` output.
+
+- Added `commit_sha` column to `get_repos()` and `get_files()` outputs ([#546](https://github.com/r-world-devs/GitStats/issues/546)).
+- Fixed `depth` parameter in `get_files()` - previously `0` and `1` value returned same output, i.e. files from `root`. Now it works the way as explained in function documentation - value `0` returns files from the `root` and value `1` goes 1 level deeper ([#663](https://github.com/r-world-devs/GitStats/issues/663)).
+- Added `language` parameter to `get_repos()` function to pull repositories only with defined language ([#654](https://github.com/r-world-devs/GitStats/issues/654)). For GitHub Search API it translates into language query, whereas in other cases the repositories output is simply filtered by the given language.
+- Introduced new `repo_fullpath` column, which replaced `fullname` in output of `get_repos()`. The `fullname` column was flawed in case of GitLab repositories as it was created out of repository `name` with `organization`. In case of GitLab repository `name` (which is more of a user friendly label) differs from repository `path` (which is in the `URL`), unlike in GitHub where repository `name` is repository `path` ([#659](https://github.com/r-world-devs/GitStats/issues/659)). `repo_name` column for GitLab repositories now mirrors repository `path`.
+- Enhanced `verbose` role to control displaying of response error statuses ([#669](https://github.com/r-world-devs/GitStats/issues/669)).
+- Improved code for searching code blobs, so `get_repos()` does not fail when user passes text, e.g. with spaces to the `with_code` parameter ([#673](https://github.com/r-world-devs/GitStats/issues/673)).
+- Standardized `repo_id` column in `get_repos()` and `get_files()` outputs for GitLab hosts - it consists now only of digits formatted as a `character` ([#675](https://github.com/r-world-devs/GitStats/issues/675)).
+- Optimized parsing search response to repositories response ([#679](https://github.com/r-world-devs/GitStats/issues/679)).
+
 # GitStats 2.3.5
 
 - Unified approach to handling `GraphQL` errors in GitHub and GitLab ([#622](https://github.com/r-world-devs/GitStats/issues/622)).

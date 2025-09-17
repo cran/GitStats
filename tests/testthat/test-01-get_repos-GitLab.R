@@ -44,7 +44,7 @@ test_that("`get_repos_from_org()` prepares formatted list", {
   expect_equal(
     names(gl_repos_from_org[[1]]$node),
     c(
-      "repo_id", "repo_name", "repo_path", "repository",
+      "repo_id", "repo_name", "repo_path", "repo_fullpath", "repository",
       "stars", "forks", "created_at", "last_activity_at",
       "languages", "issues", "namespace", "repo_url"
     )
@@ -82,7 +82,7 @@ test_that("`get_repos_from_org()` prepares formatted list", {
   expect_equal(
     names(gl_repos_from_user[[1]]$node),
     c(
-      "repo_id", "repo_name", "repo_path", "repository",
+      "repo_id", "repo_name", "repo_path", "repo_fullpath", "repository",
       "stars", "forks", "created_at", "last_activity_at",
       "languages", "issues", "namespace", "repo_url"
     )
@@ -187,8 +187,9 @@ test_that("get_repos tries one more time pull data when encounters GraphQL query
   )
   expect_named(
     repos_response[[1]]$node,
-    c("repo_id", "repo_name", "repo_path", "repository", "stars", "forks", "created_at",
-      "last_activity_at", "languages", "issues", "namespace", "repo_url")
+    c("repo_id", "repo_name", "repo_path", "repo_fullpath", "repository", "stars",
+      "forks", "created_at", "last_activity_at", "languages", "issues", "namespace",
+      "repo_url")
   )
 })
 
@@ -252,7 +253,7 @@ test_that("REST engine pulls repositories from organization", {
   attr(test_org, "type") <- "organization"
   gitlab_rest_repos_from_org_raw <- test_rest_gitlab$get_repos_from_org(
     org = test_org,
-    repos =  c("testRepo1", "testRepo2"),
+    repos =  c("test_repo_1", "test_repo_2"),
     output = "raw"
   )
   expect_length(gitlab_rest_repos_from_org_raw, 2L)
@@ -468,13 +469,14 @@ test_that("get_repos_ids", {
 test_that("parse_search_response works", {
   mockery::stub(
     gitlab_testhost_priv$parse_search_response,
-    "graphql_engine$get_repos_from_org",
+    "api_engine$get_repos_from_org",
     test_mocker$use("gl_repos_from_org")
   )
   gl_repos_raw_output <- gitlab_testhost_priv$parse_search_response(
     search_response = test_fixtures$gitlab_search_response,
     org = "test_group",
-    output = "raw"
+    output = "raw",
+    verbose = FALSE
   )
   expect_type(
     gl_repos_raw_output,
@@ -482,6 +484,7 @@ test_that("parse_search_response works", {
   )
   expect_true(
     all(names(gl_repos_raw_output[[1]]$node) %in% c("repo_id", "repo_name", "repo_path",
+                                                    "repo_fullpath",
                                                     "repository", "stars", "forks", "created_at",
                                                     "last_activity_at", "languages", "issues",
                                                     "namespace", "repo_url"))

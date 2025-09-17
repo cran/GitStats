@@ -166,7 +166,7 @@ GitHostGitHub <- R6::R6Class(
     get_repo_url_from_response = function(search_response, repos_fullnames = NULL, type, progress = TRUE) {
       if (!is.null(repos_fullnames)) {
         search_response <- search_response |>
-          purrr::keep(~ paste0(.$organization$login, "/", .$repo_name) %in% repos_fullnames)
+          purrr::keep(~ paste0(.$organization$login, "/", .$repo_path) %in% repos_fullnames)
       }
       purrr::map_vec(search_response, function(project) {
         if (type == "api") {
@@ -221,7 +221,8 @@ GitHostGitHub <- R6::R6Class(
       if ("repo" %in% private$searching_scope) {
         graphql_engine <- private$engines$graphql
         orgs <- graphql_engine$set_owner_type(
-          owners = names(private$orgs_repos)
+          owners = names(private$orgs_repos),
+          verbose = verbose
         )
         commits_table <- purrr::map(orgs, function(org) {
           commits_table_org <- NULL
@@ -264,7 +265,7 @@ GitHostGitHub <- R6::R6Class(
         owner_type = owner_type,
         verbose = verbose
       ) |>
-        purrr::map_vec(~ .$repo_name)
+        purrr::map_vec(~ .$repo_path)
       return(repos_names)
     },
 

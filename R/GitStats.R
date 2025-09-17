@@ -68,12 +68,13 @@ GitStats <- R6::R6Class(
     },
 
     get_repos = function(add_contributors = FALSE,
-                         with_code        = NULL,
-                         in_files         = NULL,
-                         with_files       = NULL,
-                         cache            = TRUE,
-                         verbose          = TRUE,
-                         progress         = TRUE) {
+                         with_code = NULL,
+                         in_files = NULL,
+                         with_files = NULL,
+                         language = NULL,
+                         cache = TRUE,
+                         verbose = TRUE,
+                         progress = TRUE) {
       private$check_for_host()
       private$check_params_conflict(
         with_code = with_code,
@@ -82,7 +83,8 @@ GitStats <- R6::R6Class(
       )
       args_list <- list("with_code" = with_code,
                         "in_files" = in_files,
-                        "with_files" = with_files)
+                        "with_files" = with_files,
+                        "language" = language)
       trigger <- private$trigger_pulling(
         cache = cache,
         storage = "repositories",
@@ -95,6 +97,7 @@ GitStats <- R6::R6Class(
           with_code = with_code,
           in_files = in_files,
           with_files = with_files,
+          language = language,
           verbose = verbose,
           progress = progress
         )
@@ -621,8 +624,8 @@ GitStats <- R6::R6Class(
                                     with_code,
                                     in_files = NULL,
                                     with_files,
+                                    language = NULL,
                                     output = "table",
-                                    force_orgs = FALSE,
                                     verbose = TRUE,
                                     progress = TRUE) {
       repos_table <- purrr::map(private$hosts, function(host) {
@@ -632,7 +635,7 @@ GitStats <- R6::R6Class(
             add_contributors = add_contributors,
             with_code = with_code,
             in_files = in_files,
-            force_orgs = force_orgs,
+            language = language,
             output = output,
             verbose = verbose,
             progress = progress
@@ -642,7 +645,7 @@ GitStats <- R6::R6Class(
             host = host,
             add_contributors = add_contributors,
             with_files = with_files,
-            force_orgs = force_orgs,
+            language = language,
             output = output,
             verbose = verbose,
             progress = progress
@@ -667,7 +670,7 @@ GitStats <- R6::R6Class(
                                              add_contributors,
                                              with_code,
                                              in_files,
-                                             force_orgs,
+                                             language,
                                              output,
                                              verbose,
                                              progress) {
@@ -676,7 +679,7 @@ GitStats <- R6::R6Class(
           add_contributors = add_contributors,
           with_code = with_code,
           in_files = in_files,
-          force_orgs = force_orgs,
+          language = language,
           output = output,
           verbose = verbose,
           progress = progress
@@ -689,7 +692,7 @@ GitStats <- R6::R6Class(
     get_repos_from_host_with_files = function(host,
                                               add_contributors,
                                               with_files,
-                                              force_orgs,
+                                              language,
                                               output,
                                               verbose,
                                               progress) {
@@ -697,7 +700,7 @@ GitStats <- R6::R6Class(
         host$get_repos(
           add_contributors = add_contributors,
           with_file = with_file,
-          force_orgs = force_orgs,
+          language = language,
           output = output,
           verbose = verbose,
           progress = progress
@@ -716,25 +719,25 @@ GitStats <- R6::R6Class(
       purrr::map(private$hosts, function(host) {
         if (!is.null(with_code)) {
           private$get_repos_urls_from_host_with_code(
-            host      = host,
-            type      = type,
+            host = host,
+            type = type,
             with_code = with_code,
-            in_files  = in_files,
-            verbose   = verbose,
-            progress  = progress
+            in_files = in_files,
+            verbose = verbose,
+            progress = progress
           )
         } else if (!is.null(with_files)) {
           private$get_repos_urls_from_host_with_files(
-            host       = host,
-            type       = type,
+            host = host,
+            type = type,
             with_files = with_files,
-            verbose    = verbose,
-            progress   = progress
+            verbose = verbose,
+            progress = progress
           )
         } else {
           host$get_repos_urls(
-            type     = type,
-            verbose  = verbose,
+            type = type,
+            verbose = verbose,
             progress = progress
           )
         }
@@ -907,19 +910,11 @@ GitStats <- R6::R6Class(
       if (nrow(repos_table > 0)) {
         repos_table <- repos_table %>%
           dplyr::mutate(
-            fullname = paste0(organization, "/", repo_name)
-          ) |>
-          dplyr::mutate(
             last_activity = difftime(
               Sys.time(),
               last_activity_at,
               units = "days"
             ) |> round(2)
-          ) |>
-          dplyr::relocate(
-            organization, fullname, githost, repo_url, api_url, created_at,
-            last_activity_at, last_activity,
-            .after = repo_name
           )
         if ("contributors" %in% colnames(repos_table)) {
           repos_table <- dplyr::mutate(
@@ -927,7 +922,11 @@ GitStats <- R6::R6Class(
             contributors_n = purrr::map_vec(contributors, function(contributors_string) {
               length(stringr::str_split(contributors_string[1], ", ")[[1]])
             })
-          )
+          ) |>
+            dplyr::relocate(
+              contributors,
+              .after = last_activity
+            )
         }
       } else {
         repos_table <- NULL

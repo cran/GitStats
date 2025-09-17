@@ -186,10 +186,18 @@ GQLQueryGitHub <- R6::R6Class("GQLQueryGitHub",
             repo_id: id
             repo_name: name
             repo_url: url
+            defaultBranchRef {
+              target {
+                ... on Commit {
+                  oid
+                }
+              }
+            }
             file: object(expression: $expression) {
               ... on Blob {
                 text
                 byteSize
+                oid
               }
             }
           }
@@ -272,6 +280,8 @@ GQLQueryGitHub <- R6::R6Class("GQLQueryGitHub",
     repo_node_data = '
       repo_id: id
       repo_name: name
+      repo_path: name
+      repo_fullpath: nameWithOwner
       default_branch: defaultBranchRef {
         name
       }
@@ -294,6 +304,13 @@ GQLQueryGitHub <- R6::R6Class("GQLQueryGitHub",
         login
       }
       repo_url: url
+      defaultBranchRef {
+        target {
+          ... on Commit {
+            oid
+          }
+        }
+      }
     '
   )
 )

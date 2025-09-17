@@ -6,16 +6,20 @@ EngineRestGitHub <- R6::R6Class(
   public = list(
 
     # Pull repositories with files
-    get_files = function(files) {
+    get_files = function(file_paths, verbose = TRUE) {
       files_list <- list()
-      for (filename in files) {
+      for (filename in file_paths) {
         search_file_endpoint <- paste0(private$endpoints[["search"]], "filename:", filename)
-        total_n <- self$response(search_file_endpoint)[["total_count"]]
+        total_n <- self$response(
+          endpoint = search_file_endpoint,
+          verbose = verbose
+        )[["total_count"]]
         if (length(total_n) > 0) {
           search_result <- private$search_response(
             search_endpoint = search_file_endpoint,
-            total_n = total_n
-          ) %>%
+            total_n = total_n,
+            verbose = verbose
+          ) |>
             purrr::keep(~ .$path == filename)
           files_content <- private$get_files_content(search_result, filename)
           files_list <- append(files_list, files_content)
@@ -50,27 +54,32 @@ EngineRestGitHub <- R6::R6Class(
                                org = NULL,
                                filename = NULL,
                                in_path = FALSE,
+                               language = NULL,
                                verbose = TRUE) {
-      user_query <- if (!is.null(org)) {
-        paste0('+user:', org)
-      } else {
-        ''
+      query <- utils::URLencode(code)
+      if (in_path) {
+        query <- paste0(query, '+in:path')
       }
-      query <- if (!in_path) {
-        paste0('"', code, '"', user_query)
-      } else {
-        paste0('"', code, '"+in:path', user_query)
+      if (!is.null(org)) {
+        query <- paste0(query, '+user:', org)
       }
       if (!is.null(filename)) {
         query <- paste0(query, '+in:file+filename:', filename)
       }
+      if (!is.null(language)) {
+        query <- paste0(query, '+language:', language)
+      }
       search_endpoint <- paste0(private$endpoints[["search"]], query)
       if (verbose) cli::cli_alert("Searching for code [{code}]...")
-      total_n <- self$response(search_endpoint)[["total_count"]]
+      total_n <- self$response(
+        endpoint = search_endpoint,
+        verbose = verbose
+      )[["total_count"]]
       search_result <- if (length(total_n) > 0) {
         private$search_response(
           search_endpoint = search_endpoint,
-          total_n = total_n
+          total_n = total_n,
+          verbose = verbose
         )
       } else {
         list()
@@ -82,24 +91,30 @@ EngineRestGitHub <- R6::R6Class(
                                      repos,
                                      filename = NULL,
                                      in_path = FALSE,
+                                     language = NULL,
                                      verbose = TRUE) {
       if (verbose) cli::cli_alert("Searching for code [{code}]...")
       search_result <- purrr::map(repos, function(repo) {
-        repo_query <- paste0('+repo:', repo)
-        query <- if (!in_path) {
-          paste0('"', code, '"', repo_query)
-        } else {
-          paste0('"', code, '"+in:path', repo_query)
+        query <- paste0(utils::URLencode(code), '+repo:', repo)
+        if (in_path) {
+          query <- paste0(query, '+in:path')
         }
         if (!is.null(filename)) {
           query <- paste0(query, '+in:file+filename:', filename)
         }
+        if (!is.null(language)) {
+          query <- paste0(query, '+language:', language)
+        }
         search_endpoint <- paste0(private$endpoints[["search"]], query)
-        total_n <- self$response(search_endpoint)[["total_count"]]
+        total_n <- self$response(
+          endpoint = search_endpoint,
+          verbose = verbose
+        )[["total_count"]]
         result <- if (length(total_n) > 0) {
           private$search_response(
             search_endpoint = search_endpoint,
-            total_n = total_n
+            total_n = total_n,
+            verbose = verbose
           )
         } else {
           list()
@@ -111,7 +126,7 @@ EngineRestGitHub <- R6::R6Class(
     },
 
     #' Pull all repositories URLS from organization
-    get_repos_urls = function(type, org, repos) {
+    get_repos_urls = function(type, org, repos, verbose = TRUE) {
       owner_type <- attr(org, "type") %||% "organization"
       if (owner_type == "user") {
         repo_endpoint <- paste0(private$endpoints[["users"]], utils::URLdecode(org), "/repos")
@@ -119,10 +134,11 @@ EngineRestGitHub <- R6::R6Class(
         repo_endpoint <- paste0(private$endpoints[["organizations"]], utils::URLdecode(org), "/repos")
       }
       repos_response <- private$paginate_results(
-        endpoint = repo_endpoint
+        endpoint = repo_endpoint,
+        verbose = verbose
       )
       if (!is.null(repos)) {
-        repos_response <- repos_response %>%
+        repos_response <- repos_response |>
           purrr::keep(~ .$name %in% repos)
       }
       repos_urls <- repos_response %>%
@@ -137,7 +153,7 @@ EngineRestGitHub <- R6::R6Class(
     },
 
     #' Add information on repository contributors.
-    get_repos_contributors = function(repos_table, progress) {
+    get_repos_contributors = function(repos_table, verbose = TRUE, progress) {
       if (nrow(repos_table) > 0) {
         repo_iterator <- paste0(repos_table$organization, "/", repos_table$repo_name)
         user_name <- rlang::expr(.$login)
@@ -146,7 +162,8 @@ EngineRestGitHub <- R6::R6Class(
             contributors_endpoint <- paste0(private$endpoints[["repositories"]], repos_id, "/contributors")
             contributors_vec <- private$get_contributors_from_repo(
               contributors_endpoint = contributors_endpoint,
-              user_name = user_name
+              user_name = user_name,
+              verbose = verbose
             )
             return(contributors_vec)
           },
@@ -195,19 +212,21 @@ EngineRestGitHub <- R6::R6Class(
     #   \link{https://docs.github.com/en/rest/search?apiVersion=2022-11-28#search-code}
     search_response = function(search_endpoint,
                                total_n,
-                               byte_max = "384000") {
+                               byte_max = "384000",
+                               verbose = TRUE) {
       if (total_n >= 0 & total_n < 1e3) {
         page_iterator <- 1:(total_n %/% 100)
         items_list <- purrr::map(page_iterator, function(page) {
           response <- self$response(
-            paste0(
+            endpoint = paste0(
               search_endpoint,
               "+size:0..",
               byte_max,
               "&page=",
               page,
               "&per_page=100"
-            )
+            ),
+            verbose = verbose
           )
           return(response[["items"]])
         }) %>%
@@ -226,7 +245,10 @@ EngineRestGitHub <- R6::R6Class(
           size_formula <- paste0("+size:", as.character(index[1]), "..", as.character(index[2]))
           spinner$spin()
           n_count <- tryCatch({
-            self$response(paste0(search_endpoint, size_formula))[["total_count"]]
+            self$response(
+              endpoint = paste0(search_endpoint, size_formula),
+              verbose = verbose
+            )[["total_count"]]
           }, error = function(e) {
             NULL
           })
@@ -235,18 +257,24 @@ EngineRestGitHub <- R6::R6Class(
           } else if ((n_count - 1) %/% 100 > 0) {
             total_pages <- 1:(n_count %/% 100) + 1
             items_part_list <- purrr::map(total_pages, function(page) {
-              self$response(paste0(search_endpoint,
-                                   size_formula,
-                                   "&page=",
-                                   page,
-                                   "&per_page=100"))[["items"]]
+              self$response(
+                endpoint = paste0(search_endpoint,
+                                  size_formula,
+                                  "&page=",
+                                  page,
+                                  "&per_page=100"),
+                verbose = verbose
+              )[["items"]]
             }) %>%
               purrr::list_flatten()
             items_list <- append(items_list, items_part_list)
           } else if ((n_count - 1) %/% 100 == 0) {
-            response <- self$response(paste0(search_endpoint,
-                                             size_formula,
-                                             "&page=1&per_page=100"))
+            response <- self$response(
+              endpoint = paste0(search_endpoint,
+                                size_formula,
+                                "&page=1&per_page=100"),
+              verbose = verbose
+            )
             items_list <- append(items_list, response[["items"]])
           }
           index[1] <- index[2]
