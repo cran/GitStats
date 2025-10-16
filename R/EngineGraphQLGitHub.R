@@ -217,8 +217,7 @@ EngineGraphQLGitHub <- R6::R6Class(
                                       repos_names,
                                       since,
                                       until,
-                                      verbose = TRUE,
-                                      progress) {
+                                      verbose) {
       repos_list_with_commits <- purrr::map(repos_names, function(repo) {
         private$get_commits_from_one_repo(
           org   = org,
@@ -227,9 +226,9 @@ EngineGraphQLGitHub <- R6::R6Class(
           until = until,
           verbose = verbose
         )
-      }, .progress = !private$scan_all && progress)
+      })
       names(repos_list_with_commits) <- repos_names
-      repos_list_with_commits <- repos_list_with_commits %>%
+      repos_list_with_commits <- repos_list_with_commits |>
         purrr::discard(~ length(.) == 0)
       return(repos_list_with_commits)
     },
@@ -287,26 +286,19 @@ EngineGraphQLGitHub <- R6::R6Class(
     # Pull all given files from all repositories of an organization.
     get_files_from_org = function(org,
                                   owner_type,
-                                  repos,
+                                  repos_data,
                                   file_paths = NULL,
                                   host_files_structure = NULL,
-                                  verbose = TRUE,
-                                  progress = TRUE) {
-      repo_data <- private$get_repos_data(
-        org = org,
-        owner_type = owner_type,
-        repos = repos
-      )
-      repositories <- repo_data[["repositories"]]
-      def_branches <- repo_data[["def_branches"]]
+                                  verbose = TRUE) {
+      repositories <- repos_data[["paths"]]
+      def_branches <- repos_data[["def_branches"]]
       org_files_list <- private$get_repositories_with_files(
         repositories = repositories,
         def_branches = def_branches,
         org = org,
         file_paths = file_paths,
         host_files_structure = host_files_structure,
-        verbose = verbose,
-        progress = progress
+        verbose = verbose
       )
       names(org_files_list) <- repositories
       for (file_path in file_paths) {
@@ -345,18 +337,12 @@ EngineGraphQLGitHub <- R6::R6Class(
     # Pull all files from all repositories of an organization.
     get_files_structure_from_org = function(org,
                                             owner_type,
-                                            repos = NULL,
-                                            pattern = NULL,
-                                            depth = Inf,
-                                            verbose = FALSE,
-                                            progress = TRUE) {
-      repo_data <- private$get_repos_data(
-        org = org,
-        owner_type = owner_type,
-        repos = repos
-      )
-      repositories <- repo_data[["repositories"]]
-      def_branches <- repo_data[["def_branches"]]
+                                            repos_data,
+                                            pattern,
+                                            depth,
+                                            verbose) {
+      repositories <- repos_data[["paths"]]
+      def_branches <- repos_data[["def_branches"]]
       files_structure <- purrr::map2(repositories, def_branches, function(repo, def_branch) {
         private$get_files_structure_from_repo(
           org = org,
@@ -366,7 +352,7 @@ EngineGraphQLGitHub <- R6::R6Class(
           depth = depth,
           verbose = verbose
         )
-      }, .progress = progress)
+      })
       names(files_structure) <- repositories
       files_structure <- purrr::discard(files_structure, ~ length(.) == 0)
       return(files_structure)
@@ -614,28 +600,12 @@ EngineGraphQLGitHub <- R6::R6Class(
       return(response)
     },
 
-    get_repos_data = function(org, owner_type, repos = NULL) {
-      repos_list <- self$get_repos_from_org(
-        org = org,
-        owner_type = owner_type
-      )
-      if (!is.null(repos)) {
-        repos_list <- purrr::keep(repos_list, ~ .$repo_path %in% repos)
-      }
-      result <- list(
-        "repositories" = purrr::map(repos_list, ~ .$repo_path),
-        "def_branches" = purrr::map(repos_list, ~ .$default_branch$name)
-      )
-      return(result)
-    },
-
     get_repositories_with_files = function(repositories,
                                            def_branches,
                                            org,
                                            host_files_structure,
                                            file_paths,
-                                           verbose = TRUE,
-                                           progress) {
+                                           verbose) {
       purrr::map2(repositories, def_branches, function(repo, def_branch) {
         if (!is.null(host_files_structure)) {
           file_paths <- private$get_path_from_files_structure(
@@ -659,7 +629,7 @@ EngineGraphQLGitHub <- R6::R6Class(
           purrr::map(~ .$data$repository)
         names(repo_files_list) <- file_paths
         return(repo_files_list)
-      }, .progress = progress)
+      })
     },
 
     get_file_response = function(org, repo, def_branch, file_path, files_query, verbose = TRUE) {
@@ -679,9 +649,9 @@ EngineGraphQLGitHub <- R6::R6Class(
     get_files_structure_from_repo = function(org,
                                              repo,
                                              def_branch,
-                                             pattern = NULL,
-                                             depth = Inf,
-                                             verbose = TRUE) {
+                                             pattern,
+                                             depth,
+                                             verbose) {
       files_tree_response <- private$get_file_response(
         org = org,
         repo = repo,

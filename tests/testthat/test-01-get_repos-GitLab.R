@@ -22,7 +22,7 @@ test_that("`get_repos_page()` pulls repos page from GitLab group", {
     test_fixtures$gitlab_repos_by_org_response
   )
   gl_repos_page <- test_graphql_gitlab_priv$get_repos_page(
-    org = "test_org",
+    org = "mbtests",
     type = "organization"
   )
   expect_gl_repos_gql_response(
@@ -38,7 +38,7 @@ test_that("`get_repos_from_org()` prepares formatted list", {
     test_mocker$use("gl_repos_page")
   )
   gl_repos_from_org <- test_graphql_gitlab$get_repos_from_org(
-    org = "test_org",
+    org = "mbtests",
     owner_type = "organization"
   )
   expect_equal(
@@ -97,7 +97,7 @@ test_that("`get_repos_from_org()` does not fail when GraphQL response is not com
     test_fixtures$empty_gql_response
   )
   gl_repos_from_org <- test_graphql_gitlab$get_repos_from_org(
-    org = "test_org",
+    org = "mbtests",
     owner_type = "organization"
   )
   expect_type(
@@ -114,7 +114,7 @@ test_that("`get_repos_from_org()` does not fail when GraphQL response is not com
     test_fixtures$half_empty_gql_response
   )
   gl_repos_from_org <- test_graphql_gitlab$get_repos_from_org(
-    org = "test_org",
+    org = "mbtests",
     owner_type = "organization"
   )
   expect_type(
@@ -137,6 +137,19 @@ test_that("get_repos_page handles properly a GraphQL query error", {
   repos_graphql_error <- test_graphql_gitlab_priv$get_repos_page()
   expect_s3_class(repos_graphql_error, "graphql_error")
   test_mocker$cache(repos_graphql_error)
+})
+
+
+test_that("get_repos_page handles properly a GraphQL query error", {
+  mockery::stub(
+    test_graphql_gitlab_priv$get_repos_page,
+    "self$gql_response",
+    test_error_fixtures$graphql_server_error |>
+      test_graphql_gitlab_priv$set_graphql_error_class()
+  )
+  internal_server_error <- test_graphql_gitlab_priv$get_repos_page()
+  expect_s3_class(internal_server_error, "graphql_error")
+  test_mocker$cache(internal_server_error)
 })
 
 test_that("error handler works correctly", {
@@ -214,7 +227,7 @@ test_that("get_repos_from_org handles properly a GraphQL query error", {
     test_mocker$use("repos_graphql_error")
   )
   gitlab_repos_error <- test_graphql_gitlab$get_repos_from_org(
-    org = "test_org",
+    org = "mbtests",
     owner_type = "organization",
     verbose = FALSE
   )
@@ -249,7 +262,7 @@ test_that("REST engine pulls repositories from organization", {
     "private$get_repos_languages",
     test_mocker$use("gl_repos_list_with_languages")
   )
-  test_org <- "test_org"
+  test_org <- "mbtests"
   attr(test_org, "type") <- "organization"
   gitlab_rest_repos_from_org_raw <- test_rest_gitlab$get_repos_from_org(
     org = test_org,
@@ -269,7 +282,7 @@ test_that("REST engine pulls repositories from organization", {
 test_that("REST engine prepares repositories table", {
   gitlab_rest_repos_table <- test_rest_gitlab$prepare_repos_table(
     repos_list = test_mocker$use("gitlab_rest_repos_from_org"),
-    org = "test_org"
+    org = "mbtests"
   )
   expect_repos_table(gitlab_rest_repos_table)
   test_mocker$cache(gitlab_rest_repos_table)
@@ -335,7 +348,7 @@ test_that("`search_repos_for_code()` works", {
 test_that("GraphQL engine prepares repos table", {
   gl_repos_table <- test_graphql_gitlab$prepare_repos_table(
     repos_list = test_mocker$use("gl_repos_from_org"),
-    org = "test_group"
+    org = "mbtests"
   )
   expect_repos_table(
     gl_repos_table
@@ -344,12 +357,14 @@ test_that("GraphQL engine prepares repos table", {
 })
 
 test_that("get_repos_from_org prints proper message", {
-  mockery::stub(
-    gitlab_testhost_priv$get_repos_from_orgs,
-    "graphql_engine$get_repos_from_org",
-    test_mocker$use("gl_repos_from_org")
-  )
-  gitlab_testhost_priv$orgs <- "test_group"
+  if (integration_tests_skipped) {
+    mockery::stub(
+      gitlab_testhost_priv$get_repos_from_orgs,
+      "graphql_engine$get_repos_from_org",
+      test_mocker$use("gl_repos_from_org")
+    )
+  }
+  gitlab_testhost_priv$orgs <- "mbtests"
   expect_snapshot(
     gl_repos_from_orgs <- gitlab_testhost_priv$get_repos_from_orgs(
       verbose = TRUE,
@@ -530,4 +545,107 @@ test_that("`get_repos_contributors()` adds contributors to repos table", {
     0
   )
   test_mocker$cache(gl_repos_table_full)
+})
+
+test_that("`get_repos_data` pulls data from org", {
+  if (integration_tests_skipped) {
+    mockery::stub(
+      gitlab_testhost_priv$get_repos_data,
+      "graphql_engine$get_repos_from_org",
+      test_mocker$use("gl_repos_from_org")
+    )
+  }
+  gitlab_testhost_priv$searching_scope <- "org"
+  gl_repos_data <- gitlab_testhost_priv$get_repos_data(
+    org = "mbtests",
+    verbose = FALSE
+  )
+  expect_type(gl_repos_data, "list")
+  expect_type(gl_repos_data[["paths"]], "character")
+  expect_gt(length(gl_repos_data[["paths"]]), 0)
+  test_mocker$cache(gl_repos_data)
+})
+
+test_that("`get_repos_data` uses cached data from org", {
+  if (integration_tests_skipped) {
+    mockery::stub(
+      gitlab_testhost_priv$get_repos_data,
+      "graphql_engine$get_repos_from_org",
+      test_mocker$use("gl_repos_from_org")
+    )
+  }
+  expect_gt(
+    length(gitlab_testhost_priv$cached_repos),
+    0
+  )
+  gitlab_testhost_priv$searching_scope <- "org"
+  expect_snapshot(
+    gl_repos_data <- gitlab_testhost_priv$get_repos_data(
+      org = "mbtests",
+      verbose = TRUE
+    )
+  )
+  expect_type(gl_repos_data, "list")
+  expect_type(gl_repos_data[["paths"]], "character")
+  expect_gt(length(gl_repos_data[["paths"]]), 0)
+})
+
+test_that("`get_repos_data` pulls data from repos", {
+  mockery::stub(
+    gitlab_testhost_priv$get_repos_data,
+    "graphql_engine$get_repos_from_org",
+    test_mocker$use("gl_repos_from_org")
+  )
+  gitlab_testhost_priv$searching_scope <- "repo"
+  gitlab_testhost_priv$cached_repos <- list()
+  gl_repos_data <- gitlab_testhost_priv$get_repos_data(
+    org = "mbtests",
+    repos = "gitstatstesting",
+    verbose = FALSE
+  )
+  expect_type(gl_repos_data, "list")
+  expect_type(gl_repos_data[["paths"]], "character")
+  expect_gt(length(gl_repos_data[["paths"]]), 0)
+})
+
+test_that("get_repos_data turns to REST if GraphQL fails with error", {
+  mockery::stub(
+    gitlab_testhost_priv$get_repos_data,
+    "graphql_engine$get_repos_from_org",
+    test_mocker$use("gitlab_repos_error")
+  )
+  mockery::stub(
+    gitlab_testhost_priv$get_repos_data,
+    "rest_engine$get_repos_from_org",
+    test_mocker$use("gitlab_rest_repos_from_org_raw")
+  )
+  gitlab_testhost_priv$searching_scope <- "org"
+  gl_repos_data <- gitlab_testhost_priv$get_repos_data(
+    org = "test_org",
+    verbose = FALSE
+  )
+  expect_type(gl_repos_data, "list")
+  expect_type(gl_repos_data[["paths"]], "character")
+  expect_gt(length(gl_repos_data[["paths"]]), 0)
+})
+
+test_that("get_repos_data prints message when turns to REST engine", {
+  mockery::stub(
+    gitlab_testhost_priv$get_repos_data,
+    "graphql_engine$get_repos_from_org",
+    test_mocker$use("gitlab_repos_error")
+  )
+  mockery::stub(
+    gitlab_testhost_priv$get_repos_data,
+    "rest_engine$get_repos_from_org",
+    test_mocker$use("gitlab_rest_repos_from_org_raw")
+  )
+  gitlab_testhost_priv$searching_scope <- "org"
+  gitlab_testhost_priv$cached_repos <- list()
+  expect_snapshot(
+    gl_repos_data <- gitlab_testhost_priv$get_repos_data(
+      org = "test_org",
+      verbose = TRUE
+    )
+  )
 })

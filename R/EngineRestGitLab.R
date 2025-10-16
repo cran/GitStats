@@ -321,12 +321,11 @@ EngineRestGitLab <- R6::R6Class(
     },
 
     # Pull all commits from given repositories.
-    get_commits_from_repos = function(repos_names,
+    get_commits_from_repos = function(full_repos_names,
                                       since,
                                       until,
-                                      verbose = TRUE,
-                                      progress) {
-      repos_list_with_commits <- purrr::map(repos_names, function(repo_path) {
+                                      verbose) {
+      repos_list_with_commits <- purrr::map(full_repos_names, function(repo_path) {
         commits_from_repo <- private$get_commits_from_one_repo(
           repo_path = repo_path,
           since = since,
@@ -334,9 +333,9 @@ EngineRestGitLab <- R6::R6Class(
           verbose = verbose
         )
         return(commits_from_repo)
-      }, .progress = !private$scan_all && progress)
-      names(repos_list_with_commits) <- repos_names
-      repos_list_with_commits <- repos_list_with_commits %>%
+      })
+      names(repos_list_with_commits) <- full_repos_names
+      repos_list_with_commits <- repos_list_with_commits |>
         purrr::discard(~ length(.) == 0)
       return(repos_list_with_commits)
     },
@@ -383,22 +382,20 @@ EngineRestGitLab <- R6::R6Class(
 
     # A method to get separately GL logins and display names
     get_commits_authors_handles_and_names = function(commits_table,
-                                                     verbose = TRUE,
-                                                     progress = verbose) {
+                                                     verbose) {
       if (nrow(commits_table) > 0) {
         if (verbose) {
           cli::cli_alert("Looking up for authors' names and logins...")
         }
         authors_dict <- private$get_authors_dict(
           commits_table = commits_table,
-          verbose = verbose,
-          progress = progress
+          verbose = verbose
         )
-        commits_table <- commits_table %>%
+        commits_table <- commits_table |>
           dplyr::mutate(
             author_login = NA,
             author_name = NA
-          ) %>%
+          ) |>
           dplyr::relocate(
             any_of(c("author_login", "author_name")),
             .after = author
@@ -570,7 +567,7 @@ EngineRestGitLab <- R6::R6Class(
         purrr::discard(is.null)
     },
 
-    get_authors_dict = function(commits_table, verbose, progress) {
+    get_authors_dict = function(commits_table, verbose) {
       authors_dict <- purrr::map(unique(commits_table$author), function(author) {
         author <- url_encode(author)
         search_endpoint <- paste0(
@@ -614,7 +611,7 @@ EngineRestGitLab <- R6::R6Class(
           )
         }
         return(user_tbl)
-      }, .progress = progress) %>%
+      }) |>
         purrr::list_rbind()
       authors_dict <- private$clean_authors_dict(authors_dict)
       return(authors_dict)

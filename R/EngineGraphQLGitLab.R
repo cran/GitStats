@@ -252,11 +252,10 @@ EngineGraphQLGitLab <- R6::R6Class(
     # to iterator over repositories (multiple queries), as it is done for GitHub.
     get_files_from_org = function(org,
                                   owner_type,
-                                  repos,
+                                  repos_data,
                                   file_paths = NULL,
                                   host_files_structure = NULL,
-                                  verbose = FALSE,
-                                  progress = FALSE) {
+                                  verbose = FALSE) {
       org <- URLdecode(org)
       full_files_list <- list()
       next_page <- TRUE
@@ -298,11 +297,10 @@ EngineGraphQLGitLab <- R6::R6Class(
               full_files_list <- self$get_files_from_org_per_repo(
                 org = org,
                 owner_type = owner_type,
-                repos = repos,
+                repos_data = repos_data,
                 file_paths = file_paths,
                 host_files_structure = host_files_structure,
-                verbose = verbose,
-                progress = progress
+                verbose = verbose
               )
               return(full_files_list)
             }
@@ -329,21 +327,20 @@ EngineGraphQLGitLab <- R6::R6Class(
           }
           full_files_list <- append(full_files_list, files_list)
         }
-        if (!is.null(repos)) {
+        if (!is.null(repos_data)) {
           full_files_list <- purrr::keep(full_files_list, function(project) {
             repo_name <- private$get_repo_name_from_url(project$webUrl)
-            repo_name %in% repos
+            repo_name %in% repos_data$paths
           })
         }
       } else {
         full_files_list <- self$get_files_from_org_per_repo(
           org = org,
           owner_type = owner_type,
-          repos = repos,
+          repos_data = repos_data,
           file_paths = file_paths,
           host_files_structure = host_files_structure,
-          verbose = verbose,
-          progress = progress
+          verbose = verbose
         )
       }
       return(full_files_list)
@@ -354,20 +351,11 @@ EngineGraphQLGitLab <- R6::R6Class(
     # For more info see docs above.
     get_files_from_org_per_repo = function(org,
                                            owner_type,
-                                           repos,
+                                           repos_data,
                                            file_paths = NULL,
                                            host_files_structure = NULL,
-                                           verbose = FALSE,
-                                           progress = FALSE) {
-      if (is.null(repos)) {
-        repo_data <- private$get_repos_data(
-          org = org,
-          owner_type = owner_type,
-          repos = repos
-        )
-        repos <- repo_data[["repositories"]]
-      }
-      org_files_list <- purrr::map(repos, function(repo) {
+                                           verbose = FALSE) {
+      org_files_list <- purrr::map(repos_data$paths, function(repo) {
         if (!is.null(host_files_structure)) {
           file_paths <- private$get_path_from_files_structure(
             host_files_structure = host_files_structure,
@@ -383,26 +371,23 @@ EngineGraphQLGitLab <- R6::R6Class(
         )
         if (private$is_complexity_error(files_response)) {
           if (verbose) {
-            cli::cli_alert("Encountered query complexity error (too many files). I will divide input data into chunks...")
+            cli::cli_alert_warning("[{repo}] Encountered query complexity error. Too many files ({length(file_paths)})).")
           }
-          iterations_number <- round(length(file_paths) / 100)
-          x <- 1
           files_response <- private$get_file_blobs_response(
             org = org,
             repo = repo,
             file_paths = file_paths[1],
             verbose = verbose
           )
-          nodes <- purrr::map(c(1:iterations_number), function(i) {
+          nodes <- purrr::map(seq_along(file_paths), function(i) {
             files_part_response <- private$get_file_blobs_response(
               org = org,
               repo = repo,
-              file_paths = file_paths[x:(i * 100)],
+              file_paths = file_paths[i],
               verbose = verbose
             )
-            x <<- x + 100
             return(files_part_response$data$project$repository$blobs$nodes)
-          }, .progress = verbose) |>
+          }) |>
             purrr::list_flatten()
           files_response <- list(
             "data" = list(
@@ -423,7 +408,7 @@ EngineGraphQLGitLab <- R6::R6Class(
           )
         }
         return(files_response)
-      }, .progress = progress)
+      })
       return(org_files_list)
     },
 
@@ -432,40 +417,19 @@ EngineGraphQLGitLab <- R6::R6Class(
       if (!is.null(files_response)) {
         if (private$response_prepared_by_iteration(files_response)) {
           files_table <- purrr::map(files_response, function(response_data) {
-            purrr::map(response_data$data$project$repository$blobs$nodes, function(file) {
-              data.frame(
-                "repo_id" = get_gitlab_repo_id(response_data$data$project$id),
-                "repo_name" = response_data$data$project$path %||% response_data$data$project$name,
-                "organization" = org,
-                "file_path" = file$path,
-                "file_content" = file$rawBlob,
-                "file_size" = as.integer(file$size),
-                "file_id" = file$oid,
-                "repo_url" = response_data$data$project$webUrl,
-                "commit_sha" = response_data$data$project$repository$lastCommit$sha %||%
-                  NA_character_
-              )
-            }) %>%
-              purrr::list_rbind()
-          }) %>%
+            private$prepare_files_table_row(
+              project = response_data$data$project,
+              org = org
+            )
+          }) |>
             purrr::list_rbind()
         } else {
           files_table <- purrr::map(files_response, function(project) {
-            purrr::map(project$repository$blobs$nodes, function(file) {
-              data.frame(
-                "repo_id" = get_gitlab_repo_id(project$id),
-                "repo_name" = project$path %||% project$name,
-                "organization" = org,
-                "file_path" = file$path,
-                "file_content" = file$rawBlob,
-                "file_size" = as.integer(file$size),
-                "file_id" = file$oid,
-                "repo_url" = project$webUrl,
-                "commit_sha" = project$repository$lastCommit$sha %||% NA_character_
-              )
-            }) %>%
-              purrr::list_rbind()
-          }) %>%
+            private$prepare_files_table_row(
+              project = project,
+              org = org
+            )
+          }) |>
             purrr::list_rbind()
         }
       } else {
@@ -476,20 +440,11 @@ EngineGraphQLGitLab <- R6::R6Class(
 
     get_files_structure_from_org = function(org,
                                             owner_type,
-                                            repos = NULL,
-                                            pattern = NULL,
-                                            depth = Inf,
-                                            verbose = TRUE,
-                                            progress = TRUE) {
-      if (is.null(repos)) {
-        repo_data <- private$get_repos_data(
-          org = org,
-          owner_type = owner_type,
-          repos = repos
-        )
-        repos <- repo_data[["repositories"]]
-      }
-      files_structure <- purrr::map(repos, function(repo) {
+                                            repos_data,
+                                            pattern,
+                                            depth,
+                                            verbose) {
+      files_structure <- purrr::map(repos_data$paths, function(repo) {
         private$get_files_structure_from_repo(
           org = org,
           repo = repo,
@@ -497,8 +452,8 @@ EngineGraphQLGitLab <- R6::R6Class(
           depth = depth,
           verbose = verbose
         )
-      }, .progress = progress)
-      names(files_structure) <- repos
+      })
+      names(files_structure) <- repos_data$paths
       files_structure <- purrr::discard(files_structure, ~ length(.) == 0)
       return(files_structure)
     },
@@ -629,20 +584,6 @@ EngineGraphQLGitLab <- R6::R6Class(
       return(repo_name)
     },
 
-    get_repos_data = function(org, owner_type, repos = NULL) {
-      repos_list <- self$get_repos_from_org(
-        org = org,
-        owner_type = owner_type
-      )
-      if (!is.null(repos)) {
-        repos_list <- purrr::keep(repos_list, ~ .$node$repo_path %in% repos)
-      }
-      result <- list(
-        "repositories" = purrr::map_vec(repos_list, ~ .$node$repo_path)
-      )
-      return(result)
-    },
-
     get_file_blobs_response = function(org, repo, file_paths, verbose = TRUE) {
       file_blobs_response <- self$gql_response(
         gql_query = self$gql_query$file_blob_from_repo(),
@@ -653,6 +594,25 @@ EngineGraphQLGitLab <- R6::R6Class(
         verbose = verbose
       )
       return(file_blobs_response)
+    },
+
+    prepare_files_table_row = function(project, org) {
+      purrr::map(project$repository$blobs$nodes, function(file) {
+        if (!is.null(file)) {
+          data.frame(
+            "repo_id" = get_gitlab_repo_id(project$id),
+            "repo_name" = project$path %||% project$name,
+            "organization" = org,
+            "file_path" = file$path,
+            "file_content" = file$rawBlob,
+            "file_size" = as.integer(file$size),
+            "file_id" = file$oid,
+            "repo_url" = project$webUrl,
+            "commit_sha" = project$repository$lastCommit$sha %||% NA_character_
+          )
+        }
+      }) |>
+        purrr::list_rbind()
     },
 
     # An iterator over pulling issues pages from one repository.
@@ -701,7 +661,7 @@ EngineGraphQLGitLab <- R6::R6Class(
       return(response)
     },
 
-    get_files_tree_response = function(org, repo, file_path, verbose = TRUE) {
+    get_files_tree_response = function(org, repo, file_path, verbose) {
       files_tree_response <- self$gql_response(
         gql_query = self$gql_query$files_tree_from_repo(),
         vars = list(
@@ -715,14 +675,14 @@ EngineGraphQLGitLab <- R6::R6Class(
 
     get_files_structure_from_repo = function(org,
                                              repo,
-                                             pattern = NULL,
-                                             depth = Inf,
-                                             verbose = TRUE) {
+                                             pattern,
+                                             depth,
+                                             verbose) {
       files_tree_response <- private$get_files_tree_response(
         org = org,
         repo = repo,
         file_path = "",
-        verbose = vebose
+        verbose = verbose
       )
       files_and_dirs_list <- private$get_files_and_dirs(
         files_tree_response = files_tree_response

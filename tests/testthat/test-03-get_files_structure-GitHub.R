@@ -7,13 +7,8 @@ test_that("files tree query for GitHub are built properly", {
   test_mocker$cache(gh_files_tree_query)
 })
 
-if (integration_tests_skipped) {
-  gh_org <- "test_org"
-  gh_repo <- "TestRepo"
-} else {
-  gh_org <- "r-world-devs"
-  gh_repo <- "GitStats"
-}
+gh_org <- "r-world-devs"
+gh_repo <- "GitStats"
 
 test_that("get_file_response works", {
   if (integration_tests_skipped) {
@@ -69,7 +64,10 @@ test_that("get_files_structure_from_repo returns list with files and dirs vector
   files_structure <- test_graphql_github_priv$get_files_structure_from_repo(
     org = gh_org,
     repo = gh_repo,
-    def_branch = "master"
+    pattern = NULL,
+    depth = 1L,
+    def_branch = "master",
+    verbose = FALSE
   )
   expect_type(
     files_structure,
@@ -91,12 +89,14 @@ test_that("get_files_structure_from_repo returns list of files up to 2 tier of d
   files_structure_very_shallow <- test_graphql_github_priv$get_files_structure_from_repo(
     org = gh_org,
     repo = gh_repo,
+    pattern = NULL,
     def_branch = "master",
     depth = 1L
   )
   files_structure_shallow <- test_graphql_github_priv$get_files_structure_from_repo(
     org = gh_org,
     repo = gh_repo,
+    pattern = NULL,
     def_branch = "master",
     depth = 2L
   )
@@ -126,67 +126,33 @@ test_that("only files with certain pattern are retrieved", {
   test_mocker$cache(md_files_structure)
 })
 
-test_that("get_repos_data pulls data on repos and branches", {
-  if (integration_tests_skipped) {
-    mockery::stub(
-      test_graphql_github_priv$get_repos_data,
-      "self$get_repos_from_org",
-      test_mocker$use("gh_repos_from_org")
-    )
-  }
-  gh_repos_data <- test_graphql_github_priv$get_repos_data(
-    org = gh_org,
-    owner_type = "organization",
-    repos = NULL
-  )
-  expect_equal(
-    names(gh_repos_data),
-    c("repositories", "def_branches")
-  )
-  expect_true(
-    length(gh_repos_data$repositories) > 0
-  )
-  expect_true(
-    length(gh_repos_data$def_branches) > 0
-  )
-  test_mocker$cache(gh_repos_data)
-})
-
 test_that("GitHub GraphQL Engine pulls files structure from repositories", {
   if (integration_tests_skipped) {
-    mockery::stub(
-      test_graphql_github$get_files_structure_from_org,
-      "private$get_repos_data",
-      test_mocker$use("gh_repos_data")
-    )
     mockery::stub(
       test_graphql_github$get_files_structure_from_org,
       "private$get_files_structure_from_repo",
       test_mocker$use("files_structure")
     )
-    gh_repos <- c("TestRepo", "TestRepo1", "TestRepo2", "TestRepo3", "TestRepo4")
-  } else {
-    gh_repos <- c("cohortBuilder", "GitStats", "GitAI")
   }
+  gh_repos <- c("GitStats", "GitAI", "cohortBuilder", "shinyCohortBuilder", "shinyGizmo")
+  gh_repos_data <- test_mocker$use("gh_repos_data")
   gh_files_structure <- test_graphql_github$get_files_structure_from_org(
     org = gh_org,
+    repos_data = gh_repos_data,
     owner_type = "organization",
-    repos = gh_repos
+    pattern = NULL,
+    depth = 1L,
+    verbose = FALSE
   )
   purrr::walk(gh_files_structure, ~ expect_true(length(.) > 0))
   expect_equal(
     names(gh_files_structure),
-    gh_repos
+    unlist(gh_repos_data$paths)
   )
   test_mocker$cache(gh_files_structure)
 })
 
 test_that("GitHub GraphQL Engine pulls files structure with pattern from repositories", {
-  mockery::stub(
-    test_graphql_github$get_files_structure_from_org,
-    "private$get_repos_data",
-    test_mocker$use("gh_repos_data")
-  )
   mockery::stub(
     test_graphql_github$get_files_structure_from_org,
     "private$get_files_structure_from_repo",
@@ -195,7 +161,7 @@ test_that("GitHub GraphQL Engine pulls files structure with pattern from reposit
   gh_md_files_structure <- test_graphql_github$get_files_structure_from_org(
     org = gh_org,
     owner_type = "organization",
-    repos = gh_repo,
+    repos_data = test_mocker$use("gh_repos_data"),
     pattern = "\\.md|\\.qmd|\\.Rmd"
   )
   purrr::walk(gh_md_files_structure, ~ expect_true(all(grepl("\\.md|\\.qmd|\\.Rmd", .))))
@@ -232,6 +198,7 @@ test_that("get_files_structure_from_orgs() prints message", {
     test_mocker$use("gh_md_files_structure")
   )
   github_testhost_priv$searching_scope <- "org"
+  github_testhost_priv$cached_repos <- list()
   expect_snapshot(
     gh_files_structure_from_orgs <- github_testhost_priv$get_files_structure_from_orgs(
       pattern = "\\.md|\\.qmd|\\.Rmd",
@@ -239,6 +206,7 @@ test_that("get_files_structure_from_orgs() prints message", {
       verbose = TRUE
     )
   )
+  github_testhost_priv$cached_repos <- list()
   expect_snapshot(
     gh_files_structure_from_orgs <- github_testhost_priv$get_files_structure_from_orgs(
       pattern = NULL,
@@ -249,7 +217,7 @@ test_that("get_files_structure_from_orgs() prints message", {
 })
 
 test_that("get_files_structure_from_repos() works", {
-  test_org <- "test_org"
+  test_org <- "r-world-devs"
   attr(test_org, "type") <- "organization"
   mockery::stub(
     github_testhost_priv$get_files_structure_from_repos,
@@ -292,6 +260,7 @@ test_that("get_files_structure_from_repos() prints message", {
     test_mocker$use("gh_md_files_structure")
   )
   github_testhost_priv$searching_scope <- "repo"
+  github_testhost_priv$cached_repos <- list()
   expect_snapshot(
     gh_files_structure_from_repos <- github_testhost_priv$get_files_structure_from_repos(
       pattern = "\\.md|\\.qmd|\\.Rmd",
@@ -299,6 +268,7 @@ test_that("get_files_structure_from_repos() prints message", {
       verbose = TRUE
     )
   )
+  github_testhost_priv$cached_repos <- list()
   expect_snapshot(
     gh_files_structure_from_repos <- github_testhost_priv$get_files_structure_from_repos(
       pattern = NULL,
@@ -396,6 +366,6 @@ test_that("get_files_structure runs when scope is set to scan whole host", {
   )
   expect_equal(
     names(files_structure),
-    "test_org"
+    "r-world-devs"
   )
 })

@@ -163,7 +163,11 @@ GitHostGitHub <- R6::R6Class(
     },
 
     # Get projects URL from search response
-    get_repo_url_from_response = function(search_response, repos_fullnames = NULL, type, progress = TRUE) {
+    get_repo_url_from_response = function(search_response,
+                                          repos_fullnames = NULL,
+                                          type,
+                                          verbose = TRUE,
+                                          progress = TRUE) {
       if (!is.null(repos_fullnames)) {
         search_response <- search_response |>
           purrr::keep(~ paste0(.$organization$login, "/", .$repo_path) %in% repos_fullnames)
@@ -178,11 +182,18 @@ GitHostGitHub <- R6::R6Class(
     },
 
     # Pull commits from GitHub
-    get_commits_from_orgs = function(since, until, verbose, progress) {
+    get_commits_from_orgs = function(since,
+                                     until,
+                                     verbose,
+                                     progress) {
       if ("org" %in% private$searching_scope) {
         graphql_engine <- private$engines$graphql
         commits_table <- purrr::map(private$orgs, function(org) {
           commits_table_org <- NULL
+          repos_data <- private$get_repos_data(
+            org = org,
+            verbose = verbose
+          )
           if (!private$scan_all && verbose) {
             show_message(
               host = private$host_name,
@@ -191,33 +202,27 @@ GitHostGitHub <- R6::R6Class(
               information = "Pulling commits"
             )
           }
-          repos_names <- private$get_repos_names(
-            org = org,
-            verbose = verbose
-          )
           commits_table_org <- graphql_engine$get_commits_from_repos(
             org = org,
-            repos_names = repos_names,
+            repos_names = repos_data[["paths"]],
             since = since,
-            until = until,
-            progress = progress
-          ) %>%
+            until = until
+          ) |>
             graphql_engine$prepare_commits_table(
               org = org
             )
           return(commits_table_org)
-        }, .progress = if (private$scan_all && progress) {
-          "[GitHost:GitHub] Pulling commits..."
-        } else {
-          FALSE
-        }) %>%
+        }, .progress = set_progress_bar(progress, private)) |>
           purrr::list_rbind()
         return(commits_table)
       }
     },
 
     # Pull commits from GitHub
-    get_commits_from_repos = function(since, until, verbose, progress) {
+    get_commits_from_repos = function(since,
+                                      until,
+                                      verbose,
+                                      progress) {
       if ("repo" %in% private$searching_scope) {
         graphql_engine <- private$engines$graphql
         orgs <- graphql_engine$set_owner_type(
@@ -238,35 +243,181 @@ GitHostGitHub <- R6::R6Class(
             org = org,
             repos_names = private$orgs_repos[[org]],
             since = since,
-            until = until,
-            progress = progress
-          ) %>%
+            until = until
+          ) |>
             graphql_engine$prepare_commits_table(
               org = org
             )
           return(commits_table_org)
-        }, .progress = if (private$scan_all && progress) {
-          "[GitHost:GitHub] Pulling commits..."
-        } else {
-          FALSE
-        }) %>%
+        }, .progress = set_progress_bar(progress, private)) |>
           purrr::list_rbind()
         return(commits_table)
       }
     },
 
-    # Use repositories either from parameter or, if not set, pull them from API
-    get_repos_names = function(org, verbose) {
-      owner_type <- attr(org, "type") %||% "organization"
-      org <- utils::URLdecode(org)
+    get_files_content_from_repos = function(file_path,
+                                            verbose = TRUE,
+                                            progress = TRUE) {
+      if ("repo" %in% private$searching_scope) {
+        graphql_engine <- private$engines$graphql
+        orgs <- graphql_engine$set_owner_type(
+          owners = names(private$orgs_repos),
+          verbose = verbose
+        )
+        files_table <- purrr::map(orgs, function(org) {
+          owner_type <- attr(org, "type") %||% "organization"
+          repos_data <- private$get_repos_data(
+            org = org,
+            repos = private$orgs_repos[[org]],
+            verbose = verbose
+          )
+          if (verbose) {
+            show_message(
+              host = private$host_name,
+              engine = "graphql",
+              scope = set_repo_scope(org, private),
+              information = glue::glue("Pulling files content: [{paste0(file_path, collapse = ', ')}]")
+            )
+          }
+          graphql_engine$get_files_from_org(
+            org = org,
+            owner_type = owner_type,
+            repos_data = repos_data,
+            file_paths = file_path,
+            verbose = verbose
+          ) |>
+            graphql_engine$prepare_files_table(
+              org = org
+            )
+        }, .progress = set_progress_bar(progress, private)) |>
+          purrr::list_rbind() |>
+          private$add_repo_api_url()
+        return(files_table)
+      }
+    },
+
+    get_files_content_from_files_structure = function(files_structure,
+                                                      verbose,
+                                                      progress) {
       graphql_engine <- private$engines$graphql
-      repos_names <- graphql_engine$get_repos_from_org(
-        org = org,
-        owner_type = owner_type,
-        verbose = verbose
-      ) |>
-        purrr::map_vec(~ .$repo_path)
-      return(repos_names)
+      result <- private$get_orgs_and_repos_from_files_structure(
+        files_structure = files_structure
+      )
+      orgs <- result$orgs
+      repos <- result$repos
+      files_table <- purrr::map(orgs, function(org) {
+        owner_type <- attr(org, "type") %||% "organization"
+        repos_data <- private$get_repos_data(
+          org = org,
+          repos = repos,
+          verbose = verbose
+        )
+        if (verbose) {
+          show_message(
+            host = private$host_name,
+            engine = "graphql",
+            scope = org,
+            information = "Pulling files from files structure"
+          )
+        }
+        graphql_engine$get_files_from_org(
+          org = org,
+          owner_type = owner_type,
+          repos_data = repos_data,
+          host_files_structure = files_structure,
+          verbose = verbose
+        ) |>
+          graphql_engine$prepare_files_table(
+            org = org
+          )
+      }, .progress = set_progress_bar(progress, private)) |>
+        purrr::list_rbind() |>
+        private$add_repo_api_url()
+      return(files_table)
+    },
+
+    get_files_structure_from_repos = function(pattern,
+                                              depth,
+                                              verbose  = TRUE,
+                                              progress = TRUE) {
+      if ("repo" %in% private$searching_scope) {
+        graphql_engine <- private$engines$graphql
+        orgs <- graphql_engine$set_owner_type(
+          owners = names(private$orgs_repos),
+          verbose = verbose
+        )
+        files_structure_list <- purrr::map(orgs, function(org) {
+          owner_type <- attr(org, "type") %||% "organization"
+          repos_data <- private$get_repos_data(
+            org = org,
+            repos = private$orgs_repos[[org]],
+            verbose = verbose
+          )
+          if (verbose) {
+            user_info <- if (!is.null(pattern)) {
+              glue::glue(
+                "Pulling repos \U1F333 [files matching pattern: '{paste0(pattern, collapse = '|')}']"
+              )
+            } else {
+              glue::glue("Pulling repos \U1F333")
+            }
+            show_message(
+              host = private$host_name,
+              engine = "graphql",
+              scope = set_repo_scope(org, private),
+              information = user_info
+            )
+          }
+          graphql_engine$get_files_structure_from_org(
+            org = org,
+            owner_type = owner_type,
+            repos_data = repos_data,
+            pattern = pattern,
+            depth = depth,
+            verbose = verbose
+          )
+        }, .progress = set_progress_bar(progress, private))
+        names(files_structure_list) <- orgs
+        files_structure_list <- files_structure_list %>%
+          purrr::discard(~ length(.) == 0)
+        if (length(files_structure_list) == 0 && verbose) {
+          cli::cli_alert_warning(
+            cli::col_yellow(
+              "For {private$host_name} no files structure found."
+            )
+          )
+        }
+        return(files_structure_list)
+      }
+    },
+
+    # Use repositories either from parameter or, if not set, pull them from API
+    get_repos_data = function(org, repos = NULL, verbose) {
+      cached_repos <- private$get_cached_repos(org)
+      if (is.null(cached_repos)) {
+        if (verbose) cli::cli_alert("Pulling repositories data...")
+        owner_type <- attr(org, "type") %||% "organization"
+        org <- utils::URLdecode(org)
+        graphql_engine <- private$engines$graphql
+        repos_from_org <- graphql_engine$get_repos_from_org(
+          org = org,
+          owner_type = owner_type,
+          verbose = verbose
+        )
+        private$set_cached_repos(repos_from_org, org, verbose)
+      } else {
+        if (verbose) cli::cli_alert("Using cached repositories data...")
+        repos_from_org <- cached_repos
+      }
+      if (!is.null(repos)) {
+        repos_from_org <- repos_from_org |>
+          purrr::keep(~ .$repo_path %in% repos)
+      }
+      repos_data <- list(
+        "paths" = purrr::map(repos_from_org, ~ .$repo_path),
+        "def_branches" = purrr::map(repos_from_org, ~ .$default_branch$name)
+      )
+      return(repos_data)
     },
 
     # Get repository url

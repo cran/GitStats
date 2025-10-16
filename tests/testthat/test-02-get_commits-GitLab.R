@@ -20,12 +20,11 @@ test_that("`get_commits_from_repos()` pulls commits from repositories", {
     "private$get_commits_from_one_repo",
     test_mocker$use("gl_commits_repo")
   )
-  repos_names <- c("test_org/TestRepo1", "test_org/TestRepo2")
+  full_repos_names <- c("test_org/TestRepo1", "test_org/TestRepo2")
   gl_commits_org <- test_rest_gitlab$get_commits_from_repos(
-    repos_names = repos_names,
-    since       = "2023-01-01",
-    until       = "2023-04-20",
-    progress    = FALSE
+    full_repos_names = full_repos_names,
+    since = "2023-01-01",
+    until = "2023-04-20"
   )
   expect_equal(names(gl_commits_org), c("test_org/TestRepo1", "test_org/TestRepo2"))
   purrr::walk(gl_commits_org[[1]], ~ expect_gl_commit_rest_response(.))
@@ -111,8 +110,7 @@ test_that("get_authors_dict() prepares dictionary with handles and names", {
     test_fixtures$gitlab_user_search_response
   )
   authors_dict <- test_rest_gitlab_priv$get_authors_dict(
-    commits_table = test_mocker$use("gl_commits_table"),
-    progress = FALSE
+    commits_table = test_mocker$use("gl_commits_table")
   )
   expect_s3_class(authors_dict, "data.frame")
   expect_true(nrow(authors_dict) > 0)
@@ -140,10 +138,16 @@ test_that("`get_commits_authors_handles_and_names()` adds author logis and names
 test_that("get_commits_from_orgs works", {
   mockery::stub(
     gitlab_testhost_priv$get_commits_from_orgs,
+    "private$get_repos_names",
+    c("test_org/TestRepo1", "test_org/TestRepo2")
+  )
+  mockery::stub(
+    gitlab_testhost_priv$get_commits_from_orgs,
     "rest_engine$get_commits_authors_handles_and_names",
     test_mocker$use("gl_commits_table")
   )
   gitlab_testhost_priv$searching_scope <- "org"
+  gitlab_testhost_priv$cached_repos <- list()
   expect_snapshot(
     gl_commits_table <- gitlab_testhost_priv$get_commits_from_orgs(
       since = "2023-03-01",
