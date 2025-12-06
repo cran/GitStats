@@ -10,11 +10,11 @@ knitr::opts_chunk$set(
 ## ----eval = FALSE-------------------------------------------------------------
 # library(GitStats)
 # 
-# github_stats <- create_gitstats() %>%
+# github_stats <- create_gitstats() |>
 #   set_github_host(
 #     orgs = c("r-world-devs", "openpharma"),
 #     token = Sys.getenv("GITHUB_PAT")
-#   ) %>%
+#   ) |>
 #   verbose_off()
 # 
 # repos_urls <- get_repos_urls(

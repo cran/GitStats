@@ -1,6 +1,6 @@
 Package: GitStats
 Title: Standardized Git Repository Data
-Version: 2.3.7
+Version: 2.3.8
 Authors@R: c(
     person(given = "Maciej", family = "Banas", email = "banasmaciek@gmail.com", role = c("aut", "cre")),
     person(given = "Kamil", family = "Koziej", email = "koziej.k@gmail.com", role = "aut"),
@@ -12,7 +12,7 @@ Description: Obtain standardized data from multiple 'Git' services, including 'G
     'Git' platforms by providing a unified way to access repository data.
 License: MIT + file LICENSE
 Encoding: UTF-8
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 URL: https://r-world-devs.github.io/GitStats/,
         https://github.com/r-world-devs/GitStats
 BugReports: https://github.com/r-world-devs/GitStats/issues
@@ -25,11 +25,11 @@ VignetteBuilder: knitr
 Language: en-US
 Depends: R (>= 4.1.0)
 NeedsCompilation: no
-Packaged: 2025-10-16 06:38:42 UTC; banas
+Packaged: 2025-12-05 17:44:04 UTC; banas
 Author: Maciej Banas [aut, cre],
   Kamil Koziej [aut],
   Karolina Marcinkowska [aut],
   Matt Secrest [aut]
 Maintainer: Maciej Banas <banasmaciek@gmail.com>
 Repository: CRAN
-Date/Publication: 2025-10-16 07:00:08 UTC
+Date/Publication: 2025-12-06 14:30:11 UTC

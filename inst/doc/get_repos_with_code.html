@@ -346,11 +346,11 @@ files</h1>
 for those that have a particular text in a <code>code blob</code>:</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(GitStats)</span>
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>github_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>github_stats <span class="ot">&lt;-</span> <span class="fu">create_gitstats</span>() <span class="sc">|&gt;</span></span>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>  <span class="fu">set_github_host</span>(</span>
 <span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>    <span class="at">orgs =</span> <span class="fu">c</span>(<span class="st">&quot;r-world-devs&quot;</span>, <span class="st">&quot;openpharma&quot;</span>),</span>
 <span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>    <span class="at">token =</span> <span class="fu">Sys.getenv</span>(<span class="st">&quot;GITHUB_PAT&quot;</span>)</span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
 <span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>  <span class="fu">verbose_off</span>()</span>
 <span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a></span>
 <span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>repos_urls <span class="ot">&lt;-</span> <span class="fu">get_repos_urls</span>(</span>
