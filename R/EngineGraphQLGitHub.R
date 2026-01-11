@@ -301,9 +301,11 @@ EngineGraphQLGitHub <- R6::R6Class(
         verbose = verbose
       )
       names(org_files_list) <- repositories
-      for (file_path in file_paths) {
-        org_files_list <- purrr::discard(org_files_list, ~ length(.[[file_path]]$file) == 0)
-      }
+      org_files_list <- purrr::map(org_files_list, function(repo_data) {
+        purrr::discard(repo_data, function(file_data) {
+          length(file_data$file) == 0
+        })
+      })
       return(org_files_list)
     },
 
@@ -401,7 +403,7 @@ EngineGraphQLGitHub <- R6::R6Class(
     },
 
     # Prepare releases table.
-    prepare_releases_table = function(releases_response, org, since, until) {
+    prepare_releases_table = function(releases_response, org) {
       if (length(releases_response) > 0) {
         releases_table <-
           purrr::map(releases_response, function(release) {
@@ -425,16 +427,7 @@ EngineGraphQLGitHub <- R6::R6Class(
               )
             return(release_table)
           }) |>
-          purrr::list_rbind() |>
-          dplyr::filter(
-            published_at <= as.POSIXct(until)
-          )
-        if (!is.null(since)) {
-          releases_table <- releases_table |>
-            dplyr::filter(
-              published_at >= as.POSIXct(since)
-            )
-        }
+          purrr::list_rbind()
       } else {
         releases_table <- NULL
       }
@@ -485,7 +478,7 @@ EngineGraphQLGitHub <- R6::R6Class(
           org = org,
           repo = repo,
           since = since,
-          until = until,
+          until = parse_until_param(until),
           commits_cursor = commits_cursor,
           verbose = verbose
         )
