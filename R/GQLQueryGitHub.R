@@ -1,7 +1,3 @@
-#' @noRd
-#' @title A GQLQueryGitHub class
-#' @description A class with methods to build GraphQL Queries for GitHub.
-
 GQLQueryGitHub <- R6::R6Class("GQLQueryGitHub",
   public = list(
 
@@ -180,6 +176,34 @@ GQLQueryGitHub <- R6::R6Class("GQLQueryGitHub",
       ')
     },
 
+    pull_requests_from_repo = function(pr_cursor = "") {
+      paste0(
+        'query GetPullRequestsFromRepo($org: String!, $repo: String!) {
+          repository(owner: $org, name: $repo) {
+            pullRequests(first: 100, ', private$add_cursor(pr_cursor), ') {
+              pageInfo {
+                 hasNextPage
+                endCursor
+              }
+              edges {
+                node {
+                  number
+                  created_at: createdAt
+                  merged_at: mergedAt
+                  state
+                  author {
+                    login
+                  }
+                  source_branch: headRefName
+                  target_branch: baseRefName
+                }
+              }
+            }
+          }
+        }'
+      )
+    },
+
     file_blob_from_repo = function() {
       'query GetFileBlobFromRepo($org: String!, $repo: String!, $expression: String!) {
           repository(owner: $org, name: $repo) {
@@ -264,7 +288,6 @@ GQLQueryGitHub <- R6::R6Class("GQLQueryGitHub",
       avatarUrl
     ',
 
-    # @description Helper to prepare repository query.
     repositories_field = function(repo_cursor) {
       paste0('
       repositories(first: 100', private$add_cursor(repo_cursor), ') {

@@ -1,5 +1,3 @@
-#' @noRd
-#' @description A class for methods wrapping GitLab's REST API responses.
 EngineRestGitLab <- R6::R6Class(
   classname = "EngineRestGitLab",
   inherit = EngineRest,
@@ -7,7 +5,7 @@ EngineRestGitLab <- R6::R6Class(
 
     get_orgs_count = function(verbose) {
       if (verbose) {
-        cli::cli_alert("[Host:GitLab][Engine:{cli::col_green('REST')}] Pulling number of all organizations...")
+        cli::cli_alert("[Host:GitLab][Engine:{cli::col_green('REST')}] Pulling number of all organizations {cli_icons$org}...")
       }
       orgs_response <- self$perform_request(paste0(private$endpoints$organizations, "?all_available=True"),
                                             token = private$token,
@@ -17,7 +15,7 @@ EngineRestGitLab <- R6::R6Class(
 
     get_orgs = function(orgs_count, verbose, progress = verbose) {
       if (verbose) {
-        cli::cli_alert("[Host:GitLab][Engine:{cli::col_green('REST')}] Pulling organizations...")
+        cli::cli_alert("[Host:GitLab][Engine:{cli::col_green('REST')}] Pulling organizations {cli_icons$org}...")
       }
       iterations_number <- ceiling(orgs_count / 100)
       orgs_list <- purrr::map(1:iterations_number, function(page) {
@@ -38,7 +36,7 @@ EngineRestGitLab <- R6::R6Class(
 
     get_org = function(org, verbose) {
       if (verbose) {
-        cli::cli_alert("[Host:GitLab][Engine:{cli::col_green('REST')}] Pulling {utils::URLdecode(org)} organization...")
+        cli::cli_alert("[Host:GitLab][Engine:{cli::col_green('REST')}] Pulling {url_decode(org)} organization {cli_icons$org}...")
       }
       self$response(
         endpoint = paste0(private$endpoints[["organizations"]], org),
@@ -61,14 +59,13 @@ EngineRestGitLab <- R6::R6Class(
         purrr::list_rbind()
     },
 
-    # Pull repositories with files
     get_files = function(file_paths = NULL,
                          org = NULL,
                          clean_files_content = TRUE,
                          verbose = TRUE,
                          progress = TRUE) {
       files_list <- list()
-      file_paths <- utils::URLencode(file_paths, reserved = TRUE)
+      file_paths <- url_encode(file_paths)
       files_list <- purrr::map(file_paths, function(filename) {
         files_search_result <- self$search_for_code(
           code = filename,
@@ -99,7 +96,7 @@ EngineRestGitLab <- R6::R6Class(
       }
       repos_response <- private$paginate_results(
         endpoint = paste0(owner_endpoint,
-                          utils::URLencode(org, reserved = TRUE),
+                          url_encode(org),
                           "/projects"),
         verbose = verbose
       )
@@ -116,7 +113,6 @@ EngineRestGitLab <- R6::R6Class(
       return(repos_response)
     },
 
-    # Pull all repositories URLs from organization
     get_repos_urls = function(type, org, repos, verbose = TRUE) {
       repos_response <- self$get_repos_from_org(
         org = org,
@@ -166,7 +162,6 @@ EngineRestGitLab <- R6::R6Class(
       }
     },
 
-    #' Add information on repository contributors.
     get_repos_contributors = function(repos_table, verbose = TRUE, progress) {
       if (nrow(repos_table) > 0) {
         repo_urls <- repos_table$api_url
@@ -192,7 +187,6 @@ EngineRestGitLab <- R6::R6Class(
       return(repos_table)
     },
 
-    # Prepare files table from REST API.
     prepare_files_table = function(files_list) {
       files_table <- NULL
       if (!is.null(files_list)) {
@@ -215,7 +209,6 @@ EngineRestGitLab <- R6::R6Class(
       return(files_table)
     },
 
-    # Search for code
     search_for_code = function(code,
                                filename = NULL,
                                in_path = FALSE,
@@ -223,23 +216,16 @@ EngineRestGitLab <- R6::R6Class(
                                language = NULL,
                                page_max = 1e6,
                                verbose = TRUE) {
-      if (!is.null(org)) {
-        org <- utils::URLencode(org, reserved = TRUE)
-      }
       page <- 1
       still_more_hits <- TRUE
       full_repos_list <- list()
       search_endpoint <- private$set_search_endpoint(org, verbose)
       if (verbose) cli::cli_alert("Searching for code [{code}]...")
-      code <- utils::URLencode(code, reserved = TRUE)
-      if (in_path) {
-        query <- paste0("path:", code)
-      } else {
-        query <- code
-      }
-      if (!is.null(filename)) {
-        query <- paste0(query, "%20filename:", filename)
-      }
+      query <- private$build_search_query(
+        code = code,
+        filename = filename,
+        in_path = in_path
+      )
       while (still_more_hits | page < page_max) {
         search_result <- tryCatch({
           self$response(
@@ -282,15 +268,8 @@ EngineRestGitLab <- R6::R6Class(
                                      page_max = 1e6,
                                      verbose = TRUE) {
       if (verbose) cli::cli_alert("Searching for code [{code}]...")
-      code <- utils::URLencode(code, reserved = TRUE)
-      if (in_path) {
-        query <- paste0("path:", code)
-      } else {
-        query <- code
-      }
-      if (!is.null(filename)) {
-        query <- paste0(query, "%20filename:", filename)
-      }
+      query <- private$build_search_query(code, filename = filename, in_path = in_path)
+      code <- url_encode(code)
       search_response <- purrr::map(repos, function(repo) {
         page <- 1
         still_more_hits <- TRUE
@@ -320,7 +299,6 @@ EngineRestGitLab <- R6::R6Class(
       return(search_response)
     },
 
-    # Pull all commits from given repositories.
     get_commits_from_repos = function(full_repos_names,
                                       since,
                                       until,
@@ -340,7 +318,6 @@ EngineRestGitLab <- R6::R6Class(
       return(repos_list_with_commits)
     },
 
-    # Get only important info on commits.
     tailor_commits_info = function(repos_list_with_commits,
                                    org) {
       repos_list_with_commits_cut <- purrr::map(repos_list_with_commits, function(repo) {
@@ -364,7 +341,6 @@ EngineRestGitLab <- R6::R6Class(
       return(repos_list_with_commits_cut)
     },
 
-    # A helper to turn list of data.frames into one data.frame
     prepare_commits_table = function(commits_list) {
       commits_dt <- purrr::map(commits_list, function(commit) {
         purrr::map(commit, ~ data.frame(.)) |>
@@ -380,12 +356,11 @@ EngineRestGitLab <- R6::R6Class(
       return(commits_dt)
     },
 
-    # A method to get separately GL logins and display names
     get_commits_authors_handles_and_names = function(commits_table,
                                                      verbose) {
       if (nrow(commits_table) > 0) {
         if (verbose) {
-          cli::cli_alert("Looking up for authors' names and logins...")
+          cli::cli_alert("Looking up for authors' {cli_icons$user} names and logins...")
         }
         authors_dict <- private$get_authors_dict(
           commits_table = commits_table,
@@ -416,19 +391,29 @@ EngineRestGitLab <- R6::R6Class(
   ),
   private = list(
 
-    # Endpoints list
     endpoints = list(
       organizations = NULL,
       projects = NULL,
       search = NULL
     ),
 
-    # Set endpoints for the API
+    build_search_query = function(code, filename = NULL, in_path = FALSE) {
+      code <- url_encode(code)
+      if (in_path) {
+        query <- paste0("path:", code)
+      } else {
+        query <- code
+      }
+      if (!is.null(filename)) {
+        query <- paste0(query, "%20filename:", filename)
+      }
+      return(query)
+    },
+
     set_endpoints = function() {
       private$set_projects_endpoint()
     },
 
-    # Set projects endpoint
     set_projects_endpoint = function() {
       private$endpoints[["projects"]] <- paste0(
         self$rest_api_url,
@@ -444,10 +429,9 @@ EngineRestGitLab <- R6::R6Class(
       )
     },
 
-    # Set search endpoint
     set_search_endpoint = function(org = NULL, verbose = TRUE) {
       scope_endpoint <- if (!is.null(org)) {
-        paste0("/groups/", private$get_group_id(org, verbose))
+        paste0("/groups/", private$get_group_id(url_encode(org), verbose))
       } else {
         ""
       }
@@ -462,12 +446,11 @@ EngineRestGitLab <- R6::R6Class(
       paste0(
         self$rest_api_url,
         "/projects/",
-        utils::URLencode(repo, reserved = TRUE),
+        url_encode(repo),
         "/search?scope=blobs&search="
       )
     },
 
-    # Pull languages of repositories.
     get_repos_languages = function(repos_list, verbose, progress) {
       repos_list_with_languages <- purrr::map(repos_list, function(repo) {
         id <- repo$id
@@ -485,14 +468,13 @@ EngineRestGitLab <- R6::R6Class(
       return(repos_list_with_languages)
     },
 
-    # Iterator over pages of commits response.
     get_commits_from_one_repo = function(repo_path,
                                          since,
                                          until,
                                          verbose = TRUE) {
       commits_endpoint <- paste0(
         private$endpoints$projects,
-        utils::URLencode(repo_path, reserved = TRUE),
+        url_encode(repo_path),
         "/repository/commits?since='",
         as.Date(since),
         "'&until='",
@@ -511,7 +493,6 @@ EngineRestGitLab <- R6::R6Class(
       return(all_commits_in_repo)
     },
 
-    # A helper to get group's id
     get_group_id = function(project_group, verbose) {
       self$response(
         endpoint = paste0(self$rest_api_url, "/groups/", project_group),
@@ -519,7 +500,6 @@ EngineRestGitLab <- R6::R6Class(
       )[["id"]]
     },
 
-    # Add file content to files search result
     add_file_info = function(files_search_result,
                              filename,
                              clean_file_content = FALSE,
@@ -615,7 +595,7 @@ EngineRestGitLab <- R6::R6Class(
         purrr::list_rbind()
       authors_dict <- authors_dict |>
         dplyr::mutate(author = author |>
-            utils::URLdecode()
+            url_decode()
         ) |>
         private$clean_authors_dict()
       return(authors_dict)

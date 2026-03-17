@@ -25,7 +25,7 @@ test_that("`get_repos_page()` pulls repos page from GitLab group", {
     org = "mbtests",
     type = "organization"
   )
-  expect_gl_repos_gql_response(
+  expect_repos_gitlab_gql_response(
     gl_repos_page
   )
   test_mocker$cache(gl_repos_page)
@@ -62,7 +62,7 @@ test_that("`get_repos_page()` pulls repos page from GitLab user", {
     org = "test_user",
     type = "user"
   )
-  expect_gl_repos_gql_response(
+  expect_repos_gitlab_gql_response(
     gl_repos_user_page,
     type = "user"
   )
@@ -286,6 +286,24 @@ test_that("REST engine prepares repositories table", {
   )
   expect_repos_table(gitlab_rest_repos_table)
   test_mocker$cache(gitlab_rest_repos_table)
+})
+
+test_that("GitLab build_search_query builds query with code only", {
+  query <- test_rest_gitlab_priv$build_search_query(code = "test")
+  expect_equal(query, utils::URLencode("test", reserved = TRUE))
+})
+
+test_that("GitLab build_search_query builds query with in_path", {
+  query <- test_rest_gitlab_priv$build_search_query(code = "src/main", in_path = TRUE)
+  expect_true(grepl("^path:", query))
+})
+
+test_that("GitLab build_search_query builds query with filename", {
+  query <- test_rest_gitlab_priv$build_search_query(
+    code = "test",
+    filename = "DESCRIPTION"
+  )
+  expect_true(grepl("filename:DESCRIPTION$", query))
 })
 
 test_that("`search_for_code()` works", {

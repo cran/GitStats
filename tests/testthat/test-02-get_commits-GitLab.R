@@ -10,7 +10,7 @@ test_that("`get_commits_from_one_repo()` pulls commits from repository", {
     until     = "2023-04-20"
   )
   expect_gt(length(gl_commits_repo), 1)
-  purrr::walk(gl_commits_repo, ~ expect_gl_commit_rest_response(.))
+  purrr::walk(gl_commits_repo, ~ expect_commit_gitlab_rest_response(.))
   test_mocker$cache(gl_commits_repo)
 })
 
@@ -27,7 +27,7 @@ test_that("`get_commits_from_repos()` pulls commits from repositories", {
     until = "2023-04-20"
   )
   expect_equal(names(gl_commits_org), c("test_org/TestRepo1", "test_org/TestRepo2"))
-  purrr::walk(gl_commits_org[[1]], ~ expect_gl_commit_rest_response(.))
+  purrr::walk(gl_commits_org[[1]], ~ expect_commit_gitlab_rest_response(.))
   test_mocker$cache(gl_commits_org)
 })
 
@@ -38,8 +38,12 @@ test_that("`tailor_commits_info()` retrieves only necessary info", {
     gl_commits_list,
     org = "mbtests"
   )
-  expect_tailored_commits_list(
-    gl_commits_list_cut[[1]][[1]]
+  expect_list_contains_only(
+    gl_commits_list_cut[[1]][[1]],
+    c(
+      "repo_name", "id", "organization", "additions", "deletions",
+      "committed_date", "author"
+    )
   )
   test_mocker$cache(gl_commits_list_cut)
 })
@@ -133,6 +137,20 @@ test_that("`get_commits_authors_handles_and_names()` adds author logis and names
     exp_auth = TRUE
   )
   test_mocker$cache(gl_commits_table)
+})
+
+test_that("`get_commits_authors_handles_and_names()` prints messages", {
+  mockery::stub(
+    test_rest_gitlab$get_commits_authors_handles_and_names,
+    "private$get_authors_dict",
+    test_mocker$use("authors_dict")
+  )
+  expect_snapshot(
+    gl_commits_table <- test_rest_gitlab$get_commits_authors_handles_and_names(
+      commits_table = test_mocker$use("gl_commits_table"),
+      verbose = TRUE
+    )
+  )
 })
 
 test_that("get_commits_from_orgs works", {

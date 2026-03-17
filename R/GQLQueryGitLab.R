@@ -1,11 +1,7 @@
-#' @noRd
-#' @title A GQLQueryGitLab class
-#' @description A class with methods to build GraphQL Queries for GitLab.
-
 GQLQueryGitLab <- R6::R6Class("GQLQueryGitLab",
   public = list(
 
-    #' groups GitLab >= 14.3
+    # groups GitLab >= 14.3
     groups = function() {
       paste0(
         'query GetGroups($groupCursor: String!) {
@@ -22,7 +18,7 @@ GQLQueryGitLab <- R6::R6Class("GQLQueryGitLab",
       )
     },
 
-    #' group GitLab >= 12.2
+    # group GitLab >= 12.2
     group = function() {
       paste0('
       query GetGroup($org: ID!) {
@@ -56,7 +52,7 @@ GQLQueryGitLab <- R6::R6Class("GQLQueryGitLab",
         }')
     },
 
-    #' projects in group GitLab >= 12.2
+    # projects in group GitLab >= 12.2
     repos_by_org = function() {
       paste0('
         query GetReposByOrg($org: ID! $repo_cursor: String!) {
@@ -99,6 +95,35 @@ GQLQueryGitLab <- R6::R6Class("GQLQueryGitLab",
                   author {
                     login: username
                   }
+                }
+              }
+            }
+          }
+        }
+      ')
+    },
+
+    pull_requests_from_repo = function(pr_cursor = "") {
+      paste0('
+      query getPullRequestsFromRepo ($fullPath: ID!) {
+          project(fullPath: $fullPath) {
+            mergeRequests(first: 100, ',
+             private$add_cursor(pr_cursor), ') {
+              pageInfo {
+                endCursor
+                hasNextPage
+              }
+              edges {
+                node {
+                  number: iid
+                  created_at: createdAt
+                  merged_at: mergedAt
+                  state
+                  author {
+                    username
+                  }
+                  source_branch: sourceBranch
+                  target_branch: targetBranch
                 }
               }
             }
@@ -273,8 +298,8 @@ GQLQueryGitLab <- R6::R6Class("GQLQueryGitLab",
       avatarUrl
     ',
 
-    #' count in ProjectConnection GitLab >= 13.0
-    #' languages in Project GitLab >= 12.9
+    # count in ProjectConnection GitLab >= 13.0
+    # languages in Project GitLab >= 12.9
     projects_field_content =
       '
       count

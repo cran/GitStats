@@ -20,7 +20,7 @@ test_that("GitHub GraphQL Engine pulls file response", {
     file_path   = "LICENSE",
     files_query = test_mocker$use("gh_file_blobs_from_repo_query")
   )
-  expect_github_files_response(github_file_response)
+  expect_files_github_response(github_file_response)
   test_mocker$cache(github_file_response)
 })
 
@@ -79,7 +79,7 @@ test_that("GitHub GraphQL Engine pulls files from organization", {
     host_files_structure = NULL,
     verbose = FALSE
   )
-  expect_github_files_response(github_files_response)
+  expect_files_github_response(github_files_response)
   test_mocker$cache(github_files_response)
 })
 
@@ -102,7 +102,7 @@ test_that("GitHub GraphQL Engine pulls files from organization", {
     host_files_structure = NULL,
     verbose = FALSE
   )
-  expect_github_files_response(github_two_files_response)
+  expect_files_github_response(github_two_files_response)
   test_mocker$cache(github_two_files_response)
 })
 
@@ -191,6 +191,53 @@ test_that("get_files_content_from_repos for GitHub works", {
     with_cols = "api_url"
   )
   test_mocker$cache(gh_files_from_repos)
+})
+
+test_that("get_files_content_from_orgs for GitHub prints messages", {
+  mockery::stub(
+    github_testhost_priv$get_files_content_from_orgs,
+    "graphql_engine$prepare_files_table",
+    test_mocker$use("gh_files_table")
+  )
+  mockery::stub(
+    github_testhost_priv$get_files_content_from_orgs,
+    "private$get_repos_data",
+    test_mocker$use("gh_repos_data")
+  )
+  github_testhost_priv$searching_scope <- "org"
+  expect_snapshot(
+    gh_files_from_orgs <- github_testhost_priv$get_files_content_from_orgs(
+      file_path = "DESCRIPTION",
+      verbose = TRUE
+    )
+  )
+})
+
+test_that("get_files_content_from_repos for GitHub prints messages", {
+  test_org <- "test_org"
+  attr(test_org, "type") <- "organization"
+  mockery::stub(
+    github_testhost_priv$get_files_content_from_repos,
+    "graphql_engine$set_owner_type",
+    test_org
+  )
+  mockery::stub(
+    github_testhost_priv$get_files_content_from_repos,
+    "private$get_repos_data",
+    test_mocker$use("gh_repos_data")
+  )
+  mockery::stub(
+    github_testhost_priv$get_files_content_from_repos,
+    "graphql_engine$prepare_files_table",
+    test_mocker$use("gh_files_table")
+  )
+  github_testhost_priv$searching_scope <- "repo"
+  expect_snapshot(
+    gh_files_from_repos <- github_testhost_priv$get_files_content_from_repos(
+      file_path = "DESCRIPTION",
+      verbose = TRUE
+    )
+  )
 })
 
 test_that("get_files_content makes use of files_structure", {

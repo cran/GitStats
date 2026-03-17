@@ -1,5 +1,3 @@
-#' @noRd
-#' @description A highest-level class to manage data pulled from different hosts.
 GitStats <- R6::R6Class(
   classname = "GitStats",
   public = list(
@@ -48,7 +46,7 @@ GitStats <- R6::R6Class(
         verbose = verbose
       )
       if (trigger) {
-        cli::cli_alert("Pulling organizations data...")
+        cli::cli_alert("Pulling organizations {cli_icons$org} data...")
         organizations <- private$get_orgs_from_hosts(
           output = output,
           verbose = verbose
@@ -92,7 +90,7 @@ GitStats <- R6::R6Class(
         verbose = verbose
       )
       if (trigger) {
-        cli::cli_alert("Pulling repositories data...")
+        cli::cli_alert("Pulling repositories {cli_icons$repo} data...")
         repositories <- private$get_repos_from_hosts(
           add_contributors = add_contributors,
           with_code = with_code,
@@ -113,7 +111,7 @@ GitStats <- R6::R6Class(
           )
         } else {
           if (verbose) {
-            cli::cli_alert_warning("No repositories found.")
+            cli::cli_alert_warning("No repositories {cli_icons$repo} found.")
           }
         }
       } else {
@@ -148,7 +146,7 @@ GitStats <- R6::R6Class(
         verbose = verbose
       )
       if (trigger) {
-        cli::cli_alert("Pulling repositories URLs...")
+        cli::cli_alert("Pulling repositories {cli_icons$repo} URLs...")
         repos_urls <- private$get_repos_urls_from_hosts(
           type = type,
           with_code = with_code,
@@ -165,10 +163,6 @@ GitStats <- R6::R6Class(
           )
           private$save_to_storage(
             table = repos_urls
-          )
-        } else if (verbose) {
-          cli::cli_alert_warning(
-            cli::col_yellow("No findings.")
           )
         }
       } else {
@@ -193,7 +187,7 @@ GitStats <- R6::R6Class(
         verbose = verbose
       )
       if (trigger) {
-        cli::cli_alert("Pulling commits...")
+        cli::cli_alert("Pulling commits {cli_icons$commit}...")
         commits <- private$get_commits_from_hosts(
           since = since,
           until = until,
@@ -211,7 +205,7 @@ GitStats <- R6::R6Class(
           )
         } else {
           if (verbose) {
-            cli::cli_alert_warning("No commits found.")
+            cli::cli_alert_warning("No commits {cli_icons$commit} found.")
           }
         }
       } else {
@@ -240,7 +234,7 @@ GitStats <- R6::R6Class(
         verbose = verbose
       )
       if (trigger) {
-        cli::cli_alert("Pulling issues...")
+        cli::cli_alert("Getting issues {cli_icons$issue}...")
         issues <- private$get_issues_from_hosts(
           since = since,
           until = until,
@@ -259,7 +253,7 @@ GitStats <- R6::R6Class(
           )
         } else {
           if (verbose) {
-            cli::cli_alert_warning("No issues found.")
+            cli::cli_alert_warning("No issues {cli_icons$issue} found.")
           }
         }
       } else {
@@ -268,6 +262,54 @@ GitStats <- R6::R6Class(
         )
       }
       return(issues)
+    },
+
+    get_pull_requests = function(since,
+                                 until,
+                                 state,
+                                 cache    = TRUE,
+                                 verbose  = TRUE,
+                                 progress = TRUE) {
+      private$check_for_host()
+      args_list <- list(
+        "state" = state,
+        "date_range" = c(since, as.character(until))
+      )
+      trigger <- private$trigger_pulling(
+        cache = cache,
+        storage = "pull_requests",
+        args_list = args_list,
+        verbose = verbose
+      )
+      if (trigger) {
+        cli::cli_alert("Getting pull requests {cli_icons$pull_request}...")
+        pull_requests <- private$get_pull_requests_from_hosts(
+          since = since,
+          until = until,
+          state = state,
+          verbose = verbose,
+          progress = progress
+        )
+        if (nrow(pull_requests) > 0) {
+          pull_requests <- private$set_object_class(
+            object = pull_requests,
+            class = "gitstats_pull_requests",
+            attr_list = args_list
+          )
+          private$save_to_storage(
+            table = pull_requests
+          )
+        } else {
+          if (verbose) {
+            cli::cli_alert_warning("No pull requests {cli_icons$pull_request} found.")
+          }
+        }
+      } else {
+        pull_requests <- private$get_from_storage(
+          table = "pull_requests"
+        )
+      }
+      return(pull_requests)
     },
 
     get_users = function(logins, cache = TRUE, verbose = TRUE) {
@@ -280,7 +322,7 @@ GitStats <- R6::R6Class(
         verbose = verbose
       )
       if (trigger) {
-        cli::cli_alert("Pulling users data...")
+        cli::cli_alert("Pulling users {cli_icons$user} data...")
         users <- private$get_users_from_hosts(logins) |>
           private$set_object_class(
             class = "gitstats_users",
@@ -313,7 +355,7 @@ GitStats <- R6::R6Class(
         verbose = verbose
       )
       if (trigger) {
-        cli::cli_alert("Pulling files content...")
+        cli::cli_alert("Pulling files {cli_icons$file} content...")
         files <- private$get_files_from_hosts(
           pattern = pattern,
           depth = depth,
@@ -330,7 +372,7 @@ GitStats <- R6::R6Class(
           private$save_to_storage(files)
         } else {
           if (verbose) {
-            cli::cli_alert_warning("No files found.")
+            cli::cli_alert_warning("No files {cli_icons$file} found.")
           }
         }
       } else {
@@ -358,7 +400,7 @@ GitStats <- R6::R6Class(
         verbose = verbose
       )
       if (trigger) {
-        cli::cli_alert("Pulling repositories structure...")
+        cli::cli_alert("Pulling repositories {cli_icons$tree} structure...")
         repos_trees <- private$get_repos_trees_from_hosts(
           pattern = pattern,
           depth = depth,
@@ -374,7 +416,7 @@ GitStats <- R6::R6Class(
           private$save_to_storage(repos_trees)
         } else {
           if (verbose) {
-            cli::cli_alert_warning("No repos \U1F333 trees found.")
+            cli::cli_alert_warning("No repos {cli_icons$tree} trees found.")
           }
         }
       } else {
@@ -399,7 +441,7 @@ GitStats <- R6::R6Class(
         verbose = verbose
       )
       if (trigger) {
-        cli::cli_alert("Pulling release logs..")
+        cli::cli_alert("Pulling release logs {cli_icons$release}..")
         release_logs <- private$get_release_logs_from_hosts(
           since = since,
           until = until,
@@ -415,7 +457,7 @@ GitStats <- R6::R6Class(
           private$save_to_storage(release_logs)
         } else {
           if (verbose) {
-            cli::cli_alert_warning("No release logs found.")
+            cli::cli_alert_warning("No release logs {cli_icons$release} found.")
           }
         }
       } else {
@@ -440,7 +482,7 @@ GitStats <- R6::R6Class(
     show_orgs = function() {
       purrr::map(private$hosts, function(host) {
         orgs <- host$.__enclos_env__$private$orgs
-        purrr::map_vec(orgs, ~ URLdecode(.))
+        purrr::map_vec(orgs, ~ url_decode(.))
       }) |>
         unlist()
     },
@@ -475,16 +517,13 @@ GitStats <- R6::R6Class(
   ),
   private = list(
 
-    # @field hosts A list of API connections information.
     hosts = list(),
 
-    # @field settings List of search preferences.
     settings = list(
       verbose = TRUE,
       cache   = TRUE
     ),
 
-    # @field storage for results
     storage = list(
       repositories = NULL,
       commits = NULL,
@@ -494,7 +533,6 @@ GitStats <- R6::R6Class(
       release_logs = NULL
     ),
 
-    # Add new host
     add_new_host = function(new_host) {
       if (!is.null(new_host)) {
         new_host <- new_host |>
@@ -503,14 +541,12 @@ GitStats <- R6::R6Class(
       }
     },
 
-    # @description Helper to check if there are any hosts.
     check_for_host = function() {
       if (length(private$hosts) == 0) {
         cli::cli_abort("Add first your hosts with `set_github_host()` or `set_gitlab_host()`.", call = NULL)
       }
     },
 
-    # Check if parameters are in conflict
     check_params_conflict = function(with_code, in_files, with_files) {
       if (!is.null(with_code) && !is.null(with_files)) {
         cli::cli_abort(c(
@@ -530,7 +566,6 @@ GitStats <- R6::R6Class(
       }
     },
 
-    # Handler for setting verbose parameter
     set_verbose_param = function(verbose) {
       if (!is.null(verbose)) {
         if (!is.logical(verbose)) {
@@ -540,18 +575,15 @@ GitStats <- R6::R6Class(
       }
     },
 
-    # Check if table exists in storage
     storage_is_empty = function(table) {
       is.null(private$storage[[table]])
     },
 
-    # Save table to storage
     save_to_storage = function(table) {
       table_name <- deparse(substitute(table))
       private$storage[[paste0(table_name)]] <- table
     },
 
-    # Retrieve table form storage
     get_from_storage = function(table) {
       cli::cli_alert_warning(cli::col_yellow(
         glue::glue("Getting cached {table} data.")
@@ -562,7 +594,6 @@ GitStats <- R6::R6Class(
       private$storage[[table]]
     },
 
-    # Decide if repositories data will be pulled from API
     trigger_pulling = function(cache, storage, args_list = NULL, verbose) {
       trigger <- FALSE
       if (private$storage_is_empty(storage)) {
@@ -593,7 +624,6 @@ GitStats <- R6::R6Class(
       return(trigger)
     },
 
-    # Check
     check_if_args_changed = function(storage, args_list) {
       storage_data <- private$storage[[paste0(storage)]]
       stored_params <- purrr::map(names(args_list), ~ attr(storage_data, .) %||% "")
@@ -601,7 +631,6 @@ GitStats <- R6::R6Class(
       !all(purrr::map2_lgl(new_params, stored_params, ~ identical(.x, .y)))
     },
 
-    # Set object class with attributes
     set_object_class = function(object, class, attr_list = NULL) {
       class(object) <- append(class, class(object))
       if (!is.null(attr_list)) {
@@ -628,7 +657,6 @@ GitStats <- R6::R6Class(
       }
     },
 
-    # Pull repositories tables from hosts and bind them into one
     get_repos_from_hosts = function(add_contributors = FALSE,
                                     with_code,
                                     in_files = NULL,
@@ -674,7 +702,6 @@ GitStats <- R6::R6Class(
       return(repos_table)
     },
 
-    # Get repositories table from one host with given text in code blobs
     get_repos_from_host_with_code = function(host,
                                              add_contributors,
                                              with_code,
@@ -697,7 +724,6 @@ GitStats <- R6::R6Class(
         purrr::list_rbind()
     },
 
-    # Get repositories table from one host with given files
     get_repos_from_host_with_files = function(host,
                                               add_contributors,
                                               with_files,
@@ -718,7 +744,6 @@ GitStats <- R6::R6Class(
         purrr::list_rbind()
     },
 
-    # Get repositories character vectors from hosts and bind them into one
     get_repos_urls_from_hosts = function(type,
                                          with_code,
                                          in_files,
@@ -755,7 +780,6 @@ GitStats <- R6::R6Class(
         unique()
     },
 
-    # Get repositories URLs from one host with code
     get_repos_urls_from_host_with_code = function(host,
                                                   type,
                                                   with_code,
@@ -774,7 +798,6 @@ GitStats <- R6::R6Class(
         unlist()
     },
 
-    # Get repositories URLs from one host with files
     get_repos_urls_from_host_with_files = function(host,
                                                    type,
                                                    with_files,
@@ -791,7 +814,6 @@ GitStats <- R6::R6Class(
         unlist()
     },
 
-    # Get commits tables from hosts and bind them into one
     get_commits_from_hosts = function(since, until, verbose, progress) {
       commits_table <- purrr::map(private$hosts, function(host) {
         host$get_commits(
@@ -806,7 +828,6 @@ GitStats <- R6::R6Class(
       return(commits_table)
     },
 
-    # Get issues tables from hosts and bind them into one
     get_issues_from_hosts = function(since, until, state, verbose, progress) {
       issues_table <- purrr::map(private$hosts, function(host) {
         host$get_issues(
@@ -822,7 +843,21 @@ GitStats <- R6::R6Class(
       return(issues_table)
     },
 
-    # Pull information on unique users in a table form
+    get_pull_requests_from_hosts = function(since, until, state, verbose, progress) {
+      pr_table <- purrr::map(private$hosts, function(host) {
+        host$get_pull_requests(
+          since    = since,
+          until    = until,
+          state    = state,
+          verbose  = verbose,
+          progress = progress
+        )
+      }) |>
+        purrr::list_rbind() |>
+        dplyr::as_tibble()
+      return(pr_table)
+    },
+
     get_users_from_hosts = function(logins) {
       purrr::map(private$hosts, function(host) {
         host$get_users(logins)
@@ -868,7 +903,6 @@ GitStats <- R6::R6Class(
         purrr::list_rbind()
     },
 
-    # Pull content of a text file in a table form
     get_files_from_hosts = function(pattern,
                                     depth,
                                     file_path,
@@ -897,7 +931,6 @@ GitStats <- R6::R6Class(
         dplyr::as_tibble()
     },
 
-    # Pull release logs tables from hosts and bind them into one
     get_release_logs_from_hosts = function(since, until, verbose, progress) {
       purrr::map(private$hosts, function(host) {
         host$get_release_logs(
@@ -911,7 +944,6 @@ GitStats <- R6::R6Class(
         dplyr::as_tibble()
     },
 
-    # Add some user-friendly columns to repositories table
     add_stats_to_repos = function(repos_table) {
       if (nrow(repos_table > 0)) {
         repos_table <- repos_table |>
@@ -940,9 +972,6 @@ GitStats <- R6::R6Class(
       return(repos_table)
     },
 
-    # @description Check whether the urls do not repeat in input.
-    # @param host An object of GitPlatform class.
-    # @return A GitPlatform object.
     check_for_duplicate_hosts = function(host) {
       if (length(private$hosts) > 0) {
         hosts_to_check <- append(host, private$hosts)
@@ -963,32 +992,27 @@ GitStats <- R6::R6Class(
       host
     },
 
-    # @description A helper to manage printing `GitStats` object.
-    # @param name Name of item to print.
-    # @param item_to_check Item to check for emptiness.
-    # @param item_to_print Item to print, if not defined it is item that is checked.
-    # @return Nothing, prints object.
     print_item = function(item_name,
                           item_to_check,
                           item_to_print = item_to_check) {
       if (item_name %in% c(" Organizations", " Repositories")) {
         item_to_print <- unlist(item_to_print)
         item_to_print <- purrr::map_vec(item_to_print, function(element) {
-          URLdecode(element)
+          url_decode(element)
         })
         list_items <- cut_item_to_print(item_to_print)
         item_to_print <- paste0("[", cli::col_green(length(item_to_print)), "] ", list_items)
       }
       cat(paste0(
         cli::col_blue(paste0(item_name, ": ")),
-        ifelse(is.null(item_to_check),
+        ifelse(
+          is.null(item_to_check),
           cli::col_grey("<not defined>"),
           item_to_print
         ), "\n"
       ))
     },
 
-    # print hosts passed to GitStats
     print_hosts = function() {
       hosts <- purrr::map_chr(private$hosts, function(host) {
         host_priv <- environment(host$initialize)$private
@@ -997,7 +1021,6 @@ GitStats <- R6::R6Class(
       private$print_item("Hosts", hosts, paste0(hosts, collapse = ", "))
     },
 
-    # print organizations and repositories set in GitStats
     print_orgs_and_repos = function() {
       orgs <- purrr::map(private$hosts, function(host) {
         host_priv <- environment(host$initialize)$private
@@ -1015,7 +1038,6 @@ GitStats <- R6::R6Class(
       private$print_item(" Repositories", repos)
     },
 
-    # print storage
     print_storage = function() {
       gitstats_storage <- purrr::imap(private$storage, function(storage_object, storage_name) {
         if (!is.null(storage_object)) {
@@ -1043,7 +1065,6 @@ GitStats <- R6::R6Class(
       }
     },
 
-    # print storage attribute
     print_storage_attribute = function(storage_data, storage_name) {
       if (!storage_name %in% c("repositories", "organizations")) {
         storage_attr <- switch(storage_name,
@@ -1052,6 +1073,7 @@ GitStats <- R6::R6Class(
                                "files" = "file_pattern",
                                "commits" = "date_range",
                                "issues" = "date_range",
+                               "pull_requests" = "date_range",
                                "release_logs" = "date_range",
                                "users" = "logins")
         attr_data <- attr(storage_data, storage_attr)

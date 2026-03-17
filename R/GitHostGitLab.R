@@ -1,4 +1,3 @@
-#' @noRd
 GitHostGitLab <- R6::R6Class("GitHostGitLab",
   inherit = GitHost,
   public = list(
@@ -27,22 +26,12 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
   ),
   private = list(
 
-    # Host
     host_name = "GitLab",
-
-    # API version
     api_version = 4,
-
-    # Default token name
     token_name = "GITLAB_PAT",
-
-    # Minimum access scopes for token
     min_access_scopes = c("read_api"),
-
-    # Access scopes for token
     access_scopes = c("api", "read_api"),
 
-    # Methods for engines
     engine_methods = list(
       "graphql" = list(
         "repos",
@@ -55,7 +44,6 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
       )
     ),
 
-    # Set API URL
     set_api_url = function(host) {
       if (is.null(host)) {
         private$api_url <- glue::glue(
@@ -66,7 +54,6 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
       }
     },
 
-    # Set web URL
     set_web_url = function(host) {
       if (is.null(host)) {
         private$web_url <- glue::glue(
@@ -77,33 +64,27 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
       }
     },
 
-    # Check whether Git platform is public or internal.
     check_if_public = function(host) {
       private$is_public <- is.null(host) || grepl("gitlab.com", host)
     },
 
-    # Set endpoint for basic checks
     set_test_endpoint = function() {
       private$test_endpoint <- glue::glue("{private$api_url}/projects")
     },
 
-    # Set tokens endpoint
     set_tokens_endpoint = function() {
       private$endpoints$tokens <- glue::glue("{private$api_url}/personal_access_tokens")
     },
 
-    # Set groups endpoint
     set_orgs_endpoint = function() {
       private$endpoints$orgs <- glue::glue("{private$api_url}/groups")
       private$endpoints$users <- glue::glue("{private$api_url}/users?username=")
     },
 
-    # Set projects endpoint
     set_repositories_endpoint = function() {
       private$endpoints$repositories <- glue::glue("{private$api_url}/projects")
     },
 
-    # Setup REST and GraphQL engines
     setup_engines = function() {
       private$engines$rest <- EngineRestGitLab$new(
         rest_api_url = private$api_url,
@@ -117,12 +98,10 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
       )
     },
 
-    # An empty method to fullfill call from super class.
     check_token_scopes = function(response = NULL, token) {
       TRUE
     },
 
-    # Add `api_url` column to table.
     add_repo_api_url = function(repos_table) {
       if (!is.null(repos_table) && nrow(repos_table) > 0) {
         repos_table <- dplyr::mutate(
@@ -205,7 +184,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
       orgs_list <- purrr::map(total_orgs_names, function(org) {
         type <- attr(org, "type") %||% "organization"
         org_response <- graphql_engine$get_org(
-          org = utils::URLdecode(org),
+          org = url_decode(org),
           verbose = verbose
         )
         if (inherits(org_response, "graphql_error")) {
@@ -213,7 +192,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
             cli::cli_alert_info("Switching to REST API")
           }
           org_response <- rest_engine$get_org(
-            org = utils::URLencode(org, reserved = TRUE),
+            org = url_encode(org),
             verbose = verbose
           )
           default_engine <<- rest_engine
@@ -228,7 +207,6 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
       purrr::map_vec(search_response, ~.$project_id) |> unique()
     },
 
-    # Get projects API URL from search response
     get_repo_url_from_response = function(search_response,
                                           type,
                                           repos_fullnames = NULL,
@@ -271,12 +249,12 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
             show_message(
               host = private$host_name,
               engine = "rest",
-              scope = utils::URLdecode(org),
-              information = "Pulling commits"
+              scope = url_decode(org),
+              information = paste0("Pulling commits ", cli_icons$commit)
             )
           }
           full_repos_encoded <- paste0(
-            utils::URLencode(org, reserved = TRUE),
+            url_encode(org),
             "%2f",
             repos_data[["paths"]]
           )
@@ -312,13 +290,13 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
         commits_table <- purrr::map(orgs, function(org) {
           commits_table_org <- NULL
           repos <- private$orgs_repos[[org]]
-          full_repos_names <- paste0(utils::URLencode(org, reserved = TRUE), "%2f", repos)
+          full_repos_names <- paste0(url_encode(org), "%2f", repos)
           if (!private$scan_all && verbose) {
             show_message(
               host = private$host_name,
               engine = "rest",
               scope = set_repo_scope(org, private),
-              information = "Pulling commits"
+              information = paste0("Pulling commits ", cli_icons$commit)
             )
           }
           commits_table_org <- rest_engine$get_commits_from_repos(
@@ -339,18 +317,17 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
       }
     },
 
-    # Use repositories either from parameter or, if not set, pull them from API
     get_repos_data = function(org, repos = NULL, verbose) {
       if (!is.null(repos)) {
         repos_names <- repos
       } else {
         cached_repos <- private$get_cached_repos(org)
         if (is.null(cached_repos)) {
-          if (verbose) cli::cli_alert("[{org}] Pulling repositories data...")
+          if (verbose) cli::cli_alert("[{org}] Pulling repositories {cli_icons$repo} data...")
           graphql_engine <- private$engines$graphql
           owner_type <- attr(org, "type") %||% "organization"
           repos_from_org <- graphql_engine$get_repos_from_org(
-            org = utils::URLdecode(org),
+            org = url_decode(org),
             owner_type = owner_type,
             verbose = verbose
           )
@@ -360,7 +337,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
             }
             rest_engine <- private$engines$rest
             repos_from_org <- rest_engine$get_repos_from_org(
-              org = utils::URLencode(org, reserved = TRUE),
+              org = url_encode(org),
               output = "raw",
               verbose = verbose
             )
@@ -408,10 +385,10 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
           if (verbose) {
             user_info <- if (!is.null(pattern)) {
               glue::glue(
-                "Pulling repos \U1F333 [files matching pattern: '{paste0(pattern, collapse = '|')}']"
+                "Pulling repos {cli_icons$tree} [files matching pattern: '{paste0(pattern, collapse = '|')}']"
               )
             } else {
-              glue::glue("Pulling repos \U1F333")
+              glue::glue("Pulling repos {cli_icons$tree}")
             }
             show_message(
               host = private$host_name,
@@ -436,7 +413,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
         if (length(files_structure_list) == 0 && verbose) {
           cli::cli_alert_warning(
             cli::col_yellow(
-              "For {private$host_name} no files structure found."
+              "For {private$host_name} no files {cli_icons$tree} structure found."
             )
           )
         }
@@ -444,7 +421,6 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
       }
     },
 
-    # Pull files content from organizations
     get_files_content_from_repos = function(file_path,
                                             verbose = TRUE,
                                             progress = TRUE) {
@@ -460,7 +436,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
               host = private$host_name,
               engine = "graphql",
               scope = set_repo_scope(org, private),
-              information = glue::glue("Pulling files content: [{paste0(file_path, collapse = ', ')}]")
+              information = glue::glue("Pulling files {cli_icons$file} content: [{paste0(file_path, collapse = ', ')}]")
             )
           }
           owner_type <- attr(org, "type") %||% "organization"
@@ -497,7 +473,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
               host = private$host_name,
               engine = "graphql",
               scope = org,
-              information = "Pulling files from files structure"
+              information = paste0("Pulling files ", cli_icons$file, " from files structure")
             )
           }
           owner_type <- attr(org, "type") %||% "organization"
@@ -516,7 +492,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
           private$add_repo_api_url()
         return(files_table)
       } else {
-        cli::cli_alert_warning("[GitLab] No files found. Skipping pulling files content.")
+        cli::cli_alert_warning("[GitLab] No files {cli_icons$file} found. Skipping pulling files content.")
         return(NULL)
       }
     }

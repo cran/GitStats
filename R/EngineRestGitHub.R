@@ -1,11 +1,8 @@
-#' @noRd
-#' @description A class for methods wrapping GitHub's REST API responses.
 EngineRestGitHub <- R6::R6Class(
   classname = "EngineRestGitHub",
   inherit = EngineRest,
   public = list(
 
-    # Pull repositories with files
     get_files = function(file_paths, verbose = TRUE) {
       files_list <- list()
       for (filename in file_paths) {
@@ -28,7 +25,6 @@ EngineRestGitHub <- R6::R6Class(
       return(files_list)
     },
 
-    # Prepare files table from REST API.
     prepare_files_table = function(files_list) {
       files_table <- NULL
       if (!is.null(files_list)) {
@@ -56,19 +52,10 @@ EngineRestGitHub <- R6::R6Class(
                                in_path = FALSE,
                                language = NULL,
                                verbose = TRUE) {
-      query <- utils::URLencode(code)
-      if (in_path) {
-        query <- paste0(query, '+in:path')
-      }
-      if (!is.null(org)) {
-        query <- paste0(query, '+user:', org)
-      }
-      if (!is.null(filename)) {
-        query <- paste0(query, '+in:file+filename:', filename)
-      }
-      if (!is.null(language)) {
-        query <- paste0(query, '+language:', language)
-      }
+      query <- private$build_search_query(
+        code = code, org = org, filename = filename,
+        in_path = in_path, language = language
+      )
       search_endpoint <- paste0(private$endpoints[["search"]], query)
       if (verbose) cli::cli_alert("Searching for code [{code}]...")
       total_n <- self$response(
@@ -95,16 +82,10 @@ EngineRestGitHub <- R6::R6Class(
                                      verbose = TRUE) {
       if (verbose) cli::cli_alert("Searching for code [{code}]...")
       search_result <- purrr::map(repos, function(repo) {
-        query <- paste0(utils::URLencode(code), '+repo:', repo)
-        if (in_path) {
-          query <- paste0(query, '+in:path')
-        }
-        if (!is.null(filename)) {
-          query <- paste0(query, '+in:file+filename:', filename)
-        }
-        if (!is.null(language)) {
-          query <- paste0(query, '+language:', language)
-        }
+        query <- private$build_search_query(
+          code = code, repo = repo, filename = filename,
+          in_path = in_path, language = language
+        )
         search_endpoint <- paste0(private$endpoints[["search"]], query)
         total_n <- self$response(
           endpoint = search_endpoint,
@@ -125,13 +106,12 @@ EngineRestGitHub <- R6::R6Class(
       return(search_result)
     },
 
-    #' Pull all repositories URLS from organization
     get_repos_urls = function(type, org, repos, verbose = TRUE) {
       owner_type <- attr(org, "type") %||% "organization"
       if (owner_type == "user") {
-        repo_endpoint <- paste0(private$endpoints[["users"]], utils::URLdecode(org), "/repos")
+        repo_endpoint <- paste0(private$endpoints[["users"]], url_decode(org), "/repos")
       } else {
-        repo_endpoint <- paste0(private$endpoints[["organizations"]], utils::URLdecode(org), "/repos")
+        repo_endpoint <- paste0(private$endpoints[["organizations"]], url_decode(org), "/repos")
       }
       repos_response <- private$paginate_results(
         endpoint = repo_endpoint,
@@ -152,7 +132,6 @@ EngineRestGitHub <- R6::R6Class(
       return(repos_urls)
     },
 
-    #' Add information on repository contributors.
     get_repos_contributors = function(repos_table, verbose = TRUE, progress) {
       if (nrow(repos_table) > 0) {
         repo_iterator <- paste0(repos_table$organization, "/", repos_table$repo_name)
@@ -177,14 +156,24 @@ EngineRestGitHub <- R6::R6Class(
   ),
   private = list(
 
-    # List of endpoints
     endpoints = list(
       search = NULL,
       organizations = NULL,
       repositories = NULL
     ),
 
-    # Set endpoints for the API
+    build_search_query = function(code, org = NULL, repo = NULL,
+                                  filename = NULL, in_path = FALSE,
+                                  language = NULL) {
+      query <- utils::URLencode(code)
+      if (!is.null(repo)) query <- paste0(query, '+repo:', repo)
+      if (!is.null(org)) query <- paste0(query, '+user:', org)
+      if (in_path) query <- paste0(query, '+in:path')
+      if (!is.null(filename)) query <- paste0(query, '+in:file+filename:', filename)
+      if (!is.null(language)) query <- paste0(query, '+language:', language)
+      return(query)
+    },
+
     set_endpoints = function() {
       private$endpoints[["search"]] <- paste0(
         self$rest_api_url,
@@ -204,9 +193,6 @@ EngineRestGitHub <- R6::R6Class(
       )
     },
 
-    # A wrapper for proper pagination of GitHub search REST API
-    # @param search_endpoint A character, a search endpoint
-    # @param total_n Number of results
     # @param byte_max According to GitHub documentation only files smaller than
     #   384 KB are searchable. See
     #   \link{https://docs.github.com/en/rest/search?apiVersion=2022-11-28#search-code}
@@ -296,14 +282,12 @@ EngineRestGitHub <- R6::R6Class(
       }
     },
 
-    # Get files content
     get_files_content = function(search_result, filename) {
       purrr::map(search_result, ~ self$response(.$url),
                  .progress = glue::glue("Adding file [{filename}] info...")) |>
         unique()
     },
 
-    # Get repository full name
     get_repo_fullname = function(file_url) {
       stringr::str_remove_all(file_url,
                               paste0(private$endpoints$repositories, "/")) |>

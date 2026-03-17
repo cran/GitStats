@@ -1,3 +1,4 @@
+# ---- Integration test utils ----
 skip_integration_tests <- function() {
   Sys.setenv(GITSTATS_INTEGRATION_TEST_SKIPPED = "true")
 }
@@ -10,30 +11,24 @@ are_integrations_tests_skipped <- function() {
   as.logical(Sys.getenv("GITSTATS_INTEGRATION_TEST_SKIPPED"))
 }
 
-#' @noRd
-#' @description A helper class to cache and mock results.
+# ---- Mocker ----
 Mocker <- R6::R6Class("Mocker",
   public = list(
 
-    #' @field storage A list to store objects.
     storage = list(),
 
-    #' @description Method to cache objects.
     cache = function(object = NULL) {
       object_name <- deparse(substitute(object))
       self$storage[[paste0(object_name)]] <- object
     },
 
-    #' @description Method to retrieve objects.
     use = function(object_name) {
       self$storage[[paste0(object_name)]]
     }
   )
 )
 
-#' @noRd
-#' @description A helper class for use in tests - it does not throw superfluous
-#'   messages and does exactly what is needed for in tests.
+# ---- Test host classes and factories ----
 GitHostGitHubTest <- R6::R6Class(
   classname = "GitHostGitHubTest",
   inherit = GitHostGitHub,
@@ -79,9 +74,6 @@ GitHostGitHubTest <- R6::R6Class(
   )
 )
 
-#' @noRd
-#' @description A helper class for use in tests - it does not throw superfluous
-#'   messages and does exactly what is needed for in tests.
 GitHostGitLabTest <- R6::R6Class(
   classname = "GitHostGitLabTest",
   inherit = GitHostGitLab,
@@ -123,7 +115,6 @@ GitHostGitLabTest <- R6::R6Class(
   )
 )
 
-#' @noRd
 create_github_testhost <- function(host  = NULL,
                                    orgs  = NULL,
                                    repos = NULL,
@@ -143,7 +134,6 @@ create_github_testhost <- function(host  = NULL,
   return(test_host)
 }
 
-#' @noRd
 create_github_testhost_all <- function(host  = NULL,
                                        orgs  = NULL,
                                        repos = NULL,
@@ -165,7 +155,6 @@ create_github_testhost_all <- function(host  = NULL,
   return(test_host)
 }
 
-#' @noRd
 create_gitlab_testhost <- function(host  = NULL,
                                    orgs  = NULL,
                                    repos = NULL,
@@ -185,8 +174,7 @@ create_gitlab_testhost <- function(host  = NULL,
   return(test_host)
 }
 
-#' @noRd
-#' @description A helper class to use in tests.
+# ---- Test engine classes and factories ----
 TestEngineRest <- R6::R6Class("TestEngineRest",
   inherit = EngineRest,
   public = list(
@@ -198,8 +186,6 @@ TestEngineRest <- R6::R6Class("TestEngineRest",
   )
 )
 
-#' @noRd
-#' @description A helper class to use in tests.
 TestEngineRestGitHub <- R6::R6Class("TestEngineRestGitHub",
   inherit = EngineRestGitHub,
   public = list(
@@ -212,8 +198,6 @@ TestEngineRestGitHub <- R6::R6Class("TestEngineRestGitHub",
   )
 )
 
-#' @noRd
-#' @description A helper class to use in tests.
 TestEngineRestGitLab <- R6::R6Class("TestEngineRestGitLab",
   inherit = EngineRestGitLab,
   public = list(
@@ -226,7 +210,6 @@ TestEngineRestGitLab <- R6::R6Class("TestEngineRestGitLab",
   )
 )
 
-#' @noRd
 create_testrest <- function(rest_api_url = "https://api.github.com",
                             token,
                             mode = "") {
@@ -240,6 +223,7 @@ create_testrest <- function(rest_api_url = "https://api.github.com",
   return(test_rest)
 }
 
+# ---- Random data generators ----
 generate_random_timestamps <- function(n, start_year, end_year) {
   start_date <- as.POSIXct(paste0(start_year, "-01-01 00:00:00"), tz = "UTC")
   end_date <- as.POSIXct(paste0(end_year, "-12-31 23:59:59"), tz = "UTC")

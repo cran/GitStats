@@ -1,17 +1,11 @@
-#' @noRd
-#' @description A class for methods wrapping GitHub's GraphQL API responses.
 EngineGraphQL <- R6::R6Class(
   "EngineGraphQL",
   inherit = Engine,
   public = list(
-
-    #' @field gql_api_url A character, url of GraphQL API.
     gql_api_url = NULL,
 
-    #' @field gql_query An environment for GraphQL queries.
     gql_query = NULL,
 
-    #' Create `EngineGraphQL` object.
     initialize = function(gql_api_url = NA,
                           token = NA,
                           scan_all = FALSE) {
@@ -21,7 +15,6 @@ EngineGraphQL <- R6::R6Class(
       private$scan_all <- scan_all
     },
 
-    #' Wrapper of GraphQL API request and response.
     gql_response = function(gql_query, vars = "null", verbose) {
       response <- private$perform_request(
         gql_query = gql_query,
@@ -33,7 +26,6 @@ EngineGraphQL <- R6::R6Class(
       return(response_list)
     },
 
-    # A method to pull information on user.
     get_user = function(username) {
       response <- self$gql_response(
         gql_query = self$gql_query$user(),
@@ -42,7 +34,6 @@ EngineGraphQL <- R6::R6Class(
       return(response)
     },
 
-    # Iterator over pulling issues from all repositories.
     get_issues_from_repos = function(org,
                                      repos_names,
                                      verbose) {
@@ -59,7 +50,6 @@ EngineGraphQL <- R6::R6Class(
       return(repos_list_with_issues)
     },
 
-    # Parses repositories' list with issues into table of issues.
     prepare_issues_table = function(repos_list_with_issues,
                                     org) {
       issues_table <- purrr::imap(repos_list_with_issues, function(repo, repo_name) {
@@ -100,11 +90,66 @@ EngineGraphQL <- R6::R6Class(
           )
       }
       return(issues_table)
+    },
+
+    get_pr_from_repos = function(org,
+                                 repos_names,
+                                 verbose) {
+      repos_list_with_pr <- purrr::map(repos_names, function(repo) {
+        private$get_pr_from_one_repo(
+          org = org,
+          repo = repo,
+          verbose = verbose
+        )
+      })
+      names(repos_list_with_pr) <- repos_names
+      repos_list_with_pr <- repos_list_with_pr |>
+        purrr::discard(~ length(.) == 0)
+      return(repos_list_with_pr)
+    },
+
+    prepare_pr_table = function(repos_list_with_pr,
+                                org) {
+      pr_table <- purrr::imap(repos_list_with_pr, function(repo, repo_name) {
+        pr_row <- purrr::map_dfr(repo, function(pr_data) {
+          state <- tolower(pr_data[["node"]][["state"]])
+          if (state == "opened") {
+            state <- "open"
+          }
+          get_node_data <- function(node_data) {
+            pr_data[["node"]][[node_data]] %||% ""
+          }
+          author_login <- pr_data[["node"]][["author"]][["login"]] %||% NA_character_
+          data.frame(
+            "number" = as.character(get_node_data("number")),
+            "created_at" = lubridate::as_datetime(get_node_data("created_at")),
+            "merged_at" = lubridate::as_datetime(get_node_data("merged_at")),
+            "state" = state,
+            "author" = author_login,
+            "source_branch" = get_node_data("source_branch"),
+            "target_branch" = get_node_data("target_branch")
+          )
+        })
+        pr_row$repo_name <- repo_name
+        pr_row
+      }) |>
+        purrr::discard(~ length(.) == 1) |>
+        purrr::list_rbind()
+      if (nrow(pr_table) > 0) {
+        pr_table <- pr_table |>
+          dplyr::mutate(
+            organization = org,
+            api_url = self$gql_api_url
+          ) |>
+          dplyr::relocate(
+            repo_name,
+            .before = number
+          )
+      }
+      return(pr_table)
     }
   ),
   private = list(
-
-    # GraphQL method for pulling response from API
     perform_request = function(gql_query, vars, token = private$token, verbose = TRUE) {
       response <- NULL
       response <- httr2::request(paste0(self$gql_api_url, "?")) |>
