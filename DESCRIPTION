@@ -1,6 +1,6 @@
 Package: GitStats
 Title: Standardized Git Repository Data
-Version: 2.4.0
+Version: 2.5.0
 Authors@R: c(
     person(given = "Maciej", family = "Banas", email = "banasmaciek@gmail.com", role = c("aut", "cre")),
     person(given = "Kamil", family = "Koziej", email = "koziej.k@gmail.com", role = "aut"),
@@ -17,19 +17,19 @@ RoxygenNote: 7.3.3
 URL: https://r-world-devs.github.io/GitStats/,
         https://github.com/r-world-devs/GitStats
 BugReports: https://github.com/r-world-devs/GitStats/issues
-Imports: cli, dplyr, glue, httr2, lubridate (>= 1.8.0), rlang (>=
-        1.1.0), R6, purrr (>= 1.0.0), stringr
-Suggests: spelling, knitr, mockery, rmarkdown, testthat (>= 3.0.0),
-        withr
+Imports: cli, dplyr, glue, httr2, lubridate (>= 1.8.0), mirai (>=
+        2.0.0), rlang (>= 1.1.0), R6, purrr (>= 1.0.0), stringr
+Suggests: DBI, jsonlite, RPostgres, RSQLite, spelling, knitr, mockery,
+        rmarkdown, testthat (>= 3.0.0), withr
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Language: en-US
 Depends: R (>= 4.1.0)
 NeedsCompilation: no
-Packaged: 2026-03-17 08:00:37 UTC; banasm
+Packaged: 2026-04-02 09:12:08 UTC; banasm
 Author: Maciej Banas [aut, cre],
   Kamil Koziej [aut],
   Karolina Marcinkowska [aut],
   Matt Secrest [aut]
 Repository: CRAN
-Date/Publication: 2026-03-17 08:40:15 UTC
+Date/Publication: 2026-04-02 10:10:08 UTC

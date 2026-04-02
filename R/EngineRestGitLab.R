@@ -87,7 +87,7 @@ EngineRestGitLab <- R6::R6Class(
       return(files_list)
     },
 
-    get_repos_from_org = function(org, repos = NULL, output = "full_table", verbose = FALSE) {
+    get_repos_from_org = function(org, repos = NULL, add_languages = TRUE, output = "full_table", verbose = FALSE) {
       owner_type <- attr(org, "type") %||% "organization"
       owner_endpoint <- if (owner_type == "organization") {
         private$endpoints[["organizations"]]
@@ -104,9 +104,10 @@ EngineRestGitLab <- R6::R6Class(
         repos_response <- repos_response |>
           purrr::keep(~ .$path %in% repos)
       }
-      if (output == "full_table") {
+      if (output == "full_table" && add_languages) {
         repos_response <- repos_response |>
           private$get_repos_languages(
+            verbose = verbose,
             progress = verbose
           )
       }
@@ -162,11 +163,45 @@ EngineRestGitLab <- R6::R6Class(
       }
     },
 
+    get_files_tree = function(org, repo, pattern, depth, verbose) {
+      repo_path <- paste0(url_encode(org), "%2F", repo)
+      endpoint <- paste0(
+        private$endpoints[["projects"]],
+        repo_path,
+        "/repository/tree?recursive=true&per_page=100"
+      )
+      response <- tryCatch(
+        private$paginate_results(
+          endpoint = endpoint,
+          joining_sign = "&",
+          verbose = verbose
+        ),
+        error = function(e) NULL
+      )
+      if (is.null(response) || length(response) == 0) {
+        return(NULL)
+      }
+      files <- purrr::keep(response, ~ .$type == "blob") |>
+        purrr::map_chr(~ .$path)
+      if (!is.null(depth) && depth < Inf) {
+        files <- purrr::keep(files, function(path) {
+          stringr::str_count(path, "/") < depth
+        })
+      }
+      if (!is.null(pattern)) {
+        files <- purrr::keep(files, function(path) {
+          any(stringr::str_detect(path, pattern))
+        })
+      }
+      if (length(files) == 0) return(NULL)
+      return(files)
+    },
+
     get_repos_contributors = function(repos_table, verbose = TRUE, progress) {
       if (nrow(repos_table) > 0) {
         repo_urls <- repos_table$api_url
         user_name <- rlang::expr(.$name)
-        repos_table$contributors <- purrr::map_chr(repo_urls, function(repo_url) {
+        repos_table$contributors <- gitstats_map_chr(repo_urls, function(repo_url) {
           contributors_endpoint <- paste0(
             repo_url,
             "/repository/contributors"
@@ -303,7 +338,7 @@ EngineRestGitLab <- R6::R6Class(
                                       since,
                                       until,
                                       verbose) {
-      repos_list_with_commits <- purrr::map(full_repos_names, function(repo_path) {
+      repos_list_with_commits <- gitstats_map(full_repos_names, function(repo_path) {
         commits_from_repo <- private$get_commits_from_one_repo(
           repo_path = repo_path,
           since = since,
@@ -360,7 +395,7 @@ EngineRestGitLab <- R6::R6Class(
                                                      verbose) {
       if (nrow(commits_table) > 0) {
         if (verbose) {
-          cli::cli_alert("Looking up for authors' {cli_icons$user} names and logins...")
+          cli::cli_alert("[Host:GitLab][Engine:{cli::col_green('REST')}] Looking up for authors' {cli_icons$user} names and logins...")
         }
         authors_dict <- private$get_authors_dict(
           commits_table = commits_table,
@@ -387,6 +422,22 @@ EngineRestGitLab <- R6::R6Class(
         }
         return(commits_table)
       }
+    },
+
+    get_commit_sha_from_branch = function(project_id, default_branch) {
+      if (is.null(default_branch) || nchar(default_branch) == 0) {
+        return(NA_character_)
+      }
+      branch_response <- self$response(
+        endpoint = paste0(
+          private$endpoints[["projects"]],
+          project_id,
+          "/repository/branches/",
+          utils::URLencode(default_branch, reserved = TRUE)
+        ),
+        verbose = FALSE
+      )
+      branch_response$commit$id %||% NA_character_
     }
   ),
   private = list(
@@ -452,6 +503,9 @@ EngineRestGitLab <- R6::R6Class(
     },
 
     get_repos_languages = function(repos_list, verbose, progress) {
+      if (verbose) {
+        cli::cli_alert("Pulling languages {cli_icons$language}...")
+      }
       repos_list_with_languages <- purrr::map(repos_list, function(repo) {
         id <- repo$id
         languages_response <- self$response(
@@ -460,11 +514,7 @@ EngineRestGitLab <- R6::R6Class(
         )
         repo$languages <- names(languages_response)
         repo
-      }, .progress = if (progress) {
-        "Pulling repositories languages..."
-      } else {
-        FALSE
-      })
+      }, .progress = progress)
       return(repos_list_with_languages)
     },
 

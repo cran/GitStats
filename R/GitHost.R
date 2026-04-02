@@ -54,17 +54,21 @@ GitHost <- R6::R6Class(
     },
 
     get_repos = function(add_contributors = TRUE,
+                         add_languages = TRUE,
                          with_code = NULL,
                          in_files = NULL,
                          with_file = NULL,
                          language = NULL,
                          output = "table",
                          verbose = TRUE,
-                         progress = TRUE) {
+                         progress = TRUE,
+                         fill_empty_sha = FALSE) {
       if (is.null(with_code) && is.null(with_file)) {
         repos_table <- private$get_all_repos(
+          add_languages = add_languages,
           verbose  = verbose,
-          progress = progress
+          progress = progress,
+          fill_empty_sha = fill_empty_sha
         )
       }
       if (!is.null(with_code)) {
@@ -94,6 +98,10 @@ GitHost <- R6::R6Class(
             repos_table = repos_table,
             language_filter = language
           )
+        }
+        if (!add_languages && "languages" %in% colnames(repos_table)) {
+          repos_table <- repos_table |>
+            dplyr::select(-languages)
         }
         if (add_contributors) {
           repos_table <- private$get_repos_contributors(
@@ -252,7 +260,7 @@ GitHost <- R6::R6Class(
 
     get_users = function(users) {
       graphql_engine <- private$engines$graphql
-      users_table <-  purrr::map(users, function(user) {
+      users_table <-  gitstats_map(users, function(user) {
         graphql_engine$get_user(user) |>
           graphql_engine$prepare_user_table()
       }) |>
@@ -354,6 +362,10 @@ GitHost <- R6::R6Class(
           )
       }
       return(release_logs_table)
+    },
+
+    set_storage_backend = function(backend) {
+      private$storage_backend <- backend
     }
   ),
   private = list(
@@ -375,6 +387,7 @@ GitHost <- R6::R6Class(
     verbose = TRUE,
     engines = list(),
     cached_repos = list(),
+    storage_backend = NULL,
 
     get_cached_repos = function(org) {
       private$cached_repos[[org]]
@@ -497,7 +510,7 @@ GitHost <- R6::R6Class(
       if (verbose) {
         cli::cli_alert(cli::col_grey("Checking repositories..."))
       }
-      repos <- purrr::map(repos, function(repo) {
+      repos <- gitstats_map(repos, function(repo) {
         repo_endpoint <- glue::glue("{private$endpoints$repositories}/{repo}")
         check <- private$check_endpoint(
           endpoint = repo_endpoint,
@@ -696,7 +709,7 @@ GitHost <- R6::R6Class(
           })
       }
       total_orgs_names <- c(orgs_names, orgs_names_from_repos)
-      orgs_table <- purrr::map(total_orgs_names, function(org) {
+      orgs_table <- gitstats_map(total_orgs_names, function(org) {
         type <- attr(org, "type") %||% "organization"
         org <- url_decode(org)
         graphql_engine$get_org(
@@ -708,7 +721,7 @@ GitHost <- R6::R6Class(
       return(orgs_table)
     },
 
-    get_all_repos = function(verbose = TRUE, progress = TRUE) {
+    get_all_repos = function(add_languages = TRUE, verbose = TRUE, progress = TRUE, fill_empty_sha = FALSE) {
       if (private$scan_all && is.null(private$orgs)) {
         private$orgs <- private$get_orgs_from_host(
           output = "only_names",
@@ -717,17 +730,17 @@ GitHost <- R6::R6Class(
       }
       repos_table <- purrr::list_rbind(
         list(
-          private$get_repos_from_orgs(verbose, progress),
-          private$get_repos_from_repos(verbose, progress)
+          private$get_repos_from_orgs(add_languages, verbose, progress),
+          private$get_repos_from_repos(add_languages, verbose, progress)
         )
       )
       return(repos_table)
     },
 
-    get_repos_from_orgs = function(verbose, progress) {
+    get_repos_from_orgs = function(add_languages, verbose, progress) {
       if (any(c("all", "org") %in% private$searching_scope)) {
         graphql_engine <- private$engines$graphql
-        purrr::map(private$orgs, function(org) {
+        gitstats_map(private$orgs, function(org) {
           owner_type <- attr(org, "type") %||% "organization"
           if (!private$scan_all && verbose) {
             show_message(
@@ -765,6 +778,7 @@ GitHost <- R6::R6Class(
             rest_engine <- private$engines$rest
             repos_table <- rest_engine$get_repos_from_org(
               org = org,
+              add_languages = add_languages,
               output = "full_table",
               verbose = verbose
             ) |>
@@ -778,14 +792,14 @@ GitHost <- R6::R6Class(
       }
     },
 
-    get_repos_from_repos = function(verbose, progress) {
+    get_repos_from_repos = function(add_languages, verbose, progress) {
       if ("repo" %in% private$searching_scope) {
         graphql_engine <- private$engines$graphql
         orgs <- graphql_engine$set_owner_type(
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        purrr::map(orgs, function(org) {
+        gitstats_map(orgs, function(org) {
           owner_type <- attr(org, "type") %||% "organization"
           if (!private$scan_all && verbose) {
             show_message(
@@ -822,6 +836,7 @@ GitHost <- R6::R6Class(
             repos_table <- rest_engine$get_repos_from_org(
               org = org,
               repos = private$orgs_repos[[org]],
+              add_languages = add_languages,
               output = "full_table",
               verbose = verbose
             ) |>
@@ -901,7 +916,7 @@ GitHost <- R6::R6Class(
     get_repos_urls_from_orgs = function(type, verbose, progress) {
       if (any(c("all", "org") %in% private$searching_scope)) {
         rest_engine <- private$engines$rest
-        repos_vector <- purrr::map(private$orgs, function(org) {
+        repos_vector <- gitstats_map(private$orgs, function(org) {
           if (!private$scan_all && verbose) {
             show_message(
               host = private$host_name,
@@ -929,7 +944,7 @@ GitHost <- R6::R6Class(
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        repos_vector <- purrr::map(orgs, function(org) {
+        repos_vector <- gitstats_map(orgs, function(org) {
           if (!private$scan_all && verbose) {
             show_message(
               host = private$host_name,
@@ -1010,7 +1025,7 @@ GitHost <- R6::R6Class(
                                              verbose = TRUE,
                                              progress = TRUE) {
       if (any(private$searching_scope %in% c("org", "all"))) {
-        repos_list <- purrr::map(private$orgs, function(org) {
+        repos_list <- gitstats_map(private$orgs, function(org) {
           if (verbose) {
             show_message(
               host = private$host_name,
@@ -1208,7 +1223,7 @@ GitHost <- R6::R6Class(
     get_issues_from_orgs = function(verbose, progress) {
       if ("org" %in% private$searching_scope) {
         graphql_engine <- private$engines$graphql
-        issues_table <- purrr::map(private$orgs, function(org) {
+        issues_table <- gitstats_map(private$orgs, function(org) {
           issues_table_org <- NULL
           repos_data <- private$get_repos_data(
             org = org,
@@ -1244,7 +1259,7 @@ GitHost <- R6::R6Class(
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        issues_table <- purrr::map(orgs, function(org) {
+        issues_table <- gitstats_map(orgs, function(org) {
           issues_table_org <- NULL
           if (!private$scan_all && verbose) {
             show_message(
@@ -1272,7 +1287,7 @@ GitHost <- R6::R6Class(
     get_pr_from_orgs = function(verbose, progress) {
       if ("org" %in% private$searching_scope) {
         graphql_engine <- private$engines$graphql
-        pr_table <- purrr::map(private$orgs, function(org) {
+        pr_table <- gitstats_map(private$orgs, function(org) {
           pr_table_org <- NULL
           repos_data <- private$get_repos_data(
             org = org,
@@ -1308,7 +1323,7 @@ GitHost <- R6::R6Class(
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        pr_table <- purrr::map(orgs, function(org) {
+        pr_table <- gitstats_map(orgs, function(org) {
           pr_table_org <- NULL
           if (!private$scan_all && verbose) {
             show_message(
@@ -1338,7 +1353,7 @@ GitHost <- R6::R6Class(
                                            progress = TRUE) {
       if ("org" %in% private$searching_scope) {
         graphql_engine <- private$engines$graphql
-        files_table <- purrr::map(private$orgs, function(org) {
+        files_table <- gitstats_map(private$orgs, function(org) {
           owner_type <- attr(org, "type") %||% "organization"
           repos_data <- private$get_repos_data(
             org = org,
@@ -1382,9 +1397,8 @@ GitHost <- R6::R6Class(
                                              verbose  = TRUE,
                                              progress = TRUE) {
       if (any(c("all", "org") %in% private$searching_scope)) {
-        graphql_engine <- private$engines$graphql
-        files_structure_list <- purrr::map(private$orgs, function(org) {
-          owner_type <- attr(org, "type") %||% "organization"
+        rest_engine <- private$engines$rest
+        files_structure_list <- gitstats_map(private$orgs, function(org) {
           repos_data <- private$get_repos_data(
             org = org,
             verbose = verbose
@@ -1399,14 +1413,14 @@ GitHost <- R6::R6Class(
             }
             show_message(
               host = private$host_name,
-              engine = "graphql",
+              engine = "rest",
               scope = org,
               information = user_info
             )
           }
-          graphql_engine$get_files_structure_from_org(
+          private$get_files_structure_from_repos_data(
+            rest_engine = rest_engine,
             org = org,
-            owner_type = owner_type,
             repos_data = repos_data,
             pattern = pattern,
             depth = depth,
@@ -1425,6 +1439,53 @@ GitHost <- R6::R6Class(
         }
         return(files_structure_list)
       }
+    },
+
+    get_files_structure_from_repos_data = function(rest_engine,
+                                                   org,
+                                                   repos_data,
+                                                   pattern,
+                                                   depth,
+                                                   verbose) {
+      repositories <- repos_data[["paths"]]
+      def_branches <- repos_data[["def_branches"]]
+      repo_ids <- repos_data[["repo_ids"]]
+      if (!is.null(def_branches)) {
+        files_structure <- gitstats_map2(repositories, def_branches,
+          function(repo, def_branch) {
+            rest_engine$get_files_tree(
+              org = org,
+              repo = repo,
+              def_branch = def_branch,
+              pattern = pattern,
+              depth = depth,
+              verbose = verbose
+            )
+          }
+        )
+      } else {
+        files_structure <- gitstats_map(repositories,
+          function(repo) {
+            rest_engine$get_files_tree(
+              org = org,
+              repo = repo,
+              pattern = pattern,
+              depth = depth,
+              verbose = verbose
+            )
+          }
+        )
+      }
+      names(files_structure) <- repositories
+      if (!is.null(repo_ids)) {
+        for (i in seq_along(files_structure)) {
+          if (!is.null(files_structure[[i]])) {
+            attr(files_structure[[i]], "repo_id") <- repo_ids[[i]]
+          }
+        }
+      }
+      files_structure <- purrr::discard(files_structure, ~ length(.) == 0)
+      return(files_structure)
     },
 
     get_files_content_from_host = function(file_path,
@@ -1449,7 +1510,7 @@ GitHost <- R6::R6Class(
 
     get_release_logs_from_orgs = function(verbose, progress) {
       if ("org" %in% private$searching_scope) {
-        release_logs_table <- purrr::map(private$orgs, function(org) {
+        release_logs_table <- gitstats_map(private$orgs, function(org) {
           org <- url_decode(org)
           release_logs_table_org <- NULL
           repos_data <- private$get_repos_data(
@@ -1491,7 +1552,7 @@ GitHost <- R6::R6Class(
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        release_logs_table <- purrr::map(orgs, function(org) {
+        release_logs_table <- gitstats_map(orgs, function(org) {
           org <- url_decode(org)
           release_logs_table_org <- NULL
           if (!private$scan_all && verbose) {

@@ -1,3 +1,19 @@
+# GitStats 2.5.0
+
+This release introduces external storage backends (PostgreSQL and SQLite) for persisting pulled data across sessions, and optional parallel processing via `mirai` for faster API calls. It also brings several performance improvements, including a faster file tree retrieval and optimized GitLab repository queries.
+
+- Added `add_languages` parameter to `get_repos()` (`TRUE` by default). When set to `FALSE`, languages data is excluded from the output and the GitLab REST languages API calls are skipped, speeding up the process.
+- Fixed `get_repos()` returning `NA` for `commit_sha` on archived GitLab projects. When the GraphQL API returns `null` for `lastCommit`, a REST Branches API fallback can now retrieve the SHA. Use `fill_empty_sha = TRUE` in `get_repos()` to enable this ([#746](https://github.com/r-world-devs/GitStats/issues/746)).
+- Added optional parallel processing for API calls via `mirai` package. Use `set_parallel()` to enable concurrent data fetching across repositories and organizations ([#736](https://github.com/r-world-devs/GitStats/issues/736)).
+- Cached `set_owner_type()` results to avoid redundant GraphQL calls when multiple `get_*` functions are used in the same session ([#738](https://github.com/r-world-devs/GitStats/issues/738)).
+- Replaced per-directory GraphQL file tree traversal with single-call REST recursive tree API for `get_repos_trees()`, substantially improving speed of retrieving repository file trees ([#740](https://github.com/r-world-devs/GitStats/issues/740)).
+- Added `set_postgres_storage()`, `set_sqlite_storage()`, and `set_local_storage()` to configure external storage backends. PostgreSQL (via `RPostgres`/`DBI`) and SQLite (via `RSQLite`/`DBI`) are supported for persisting data in a database. Metadata (R classes, attributes) is preserved via a `_metadata` table ([#602](https://github.com/r-world-devs/GitStats/issues/602)).
+- Added `remove_from_storage()` to remove a named table from the active storage backend ([#747](https://github.com/r-world-devs/GitStats/issues/747)).
+- Added `remove_postgres_storage()` and `remove_sqlite_storage()` to fully remove a database storage backend — the PostgreSQL variant drops the GitStats schema, the SQLite variant deletes the database file — and revert to local storage ([#759](https://github.com/r-world-devs/GitStats/issues/759)).
+- Added `get_storage_metadata()` to retrieve metadata (R classes, custom attributes, column types) for a stored table ([#748](https://github.com/r-world-devs/GitStats/issues/748)).
+- Fixed slow `get_repos()` for GitLab when specific repos are set. Previously, the `repos_by_user` GraphQL query searched the entire GitLab instance; now repos are queried directly by `fullPath` ([#750](https://github.com/r-world-devs/GitStats/issues/750)).
+- Sped up vignettes generation ([#504](https://github.com/r-world-devs/GitStats/issues/504), [@marcinkowskak](https://github.com/marcinkowskak)).
+
 # GitStats 2.4.0
 
 The newest minor release includes new functions for retrieving pull requests (`get_pull_requests()`) and their statistics (`get_pull_requests_stats()`),  prettified repository URL outputs in `get_repos_urls()`, along with refactoring and code cleanup.

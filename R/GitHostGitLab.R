@@ -65,7 +65,9 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
     },
 
     check_if_public = function(host) {
-      private$is_public <- is.null(host) || grepl("gitlab.com", host)
+      private$is_public <- is.null(host) ||
+        host == "gitlab.com" ||
+        host == "https://gitlab.com"
     },
 
     set_test_endpoint = function() {
@@ -239,7 +241,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
                                      progress) {
       if ("org" %in% private$searching_scope) {
         rest_engine <- private$engines$rest
-        commits_table <- purrr::map(private$orgs, function(org) {
+        commits_table <- gitstats_map(private$orgs, function(org) {
           commits_table_org <- NULL
           repos_data <- private$get_repos_data(
             org = org,
@@ -287,7 +289,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        commits_table <- purrr::map(orgs, function(org) {
+        commits_table <- gitstats_map(orgs, function(org) {
           commits_table_org <- NULL
           repos <- private$orgs_repos[[org]]
           full_repos_names <- paste0(url_encode(org), "%2f", repos)
@@ -318,47 +320,79 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
     },
 
     get_repos_data = function(org, repos = NULL, verbose) {
-      if (!is.null(repos)) {
-        repos_names <- repos
-      } else {
-        cached_repos <- private$get_cached_repos(org)
-        if (is.null(cached_repos)) {
-          if (verbose) cli::cli_alert("[{org}] Pulling repositories {cli_icons$repo} data...")
-          graphql_engine <- private$engines$graphql
-          owner_type <- attr(org, "type") %||% "organization"
-          repos_from_org <- graphql_engine$get_repos_from_org(
-            org = url_decode(org),
-            owner_type = owner_type,
+      cached_repos <- private$get_cached_repos(org)
+      if (is.null(cached_repos)) {
+        if (verbose) cli::cli_alert("[{org}] Pulling repositories {cli_icons$repo} data...")
+        graphql_engine <- private$engines$graphql
+        owner_type <- attr(org, "type") %||% "organization"
+        repos_from_org <- graphql_engine$get_repos_from_org(
+          org = url_decode(org),
+          owner_type = owner_type,
+          verbose = verbose
+        )
+        engine_used <- graphql_engine
+        if (inherits(repos_from_org, "graphql_error")) {
+          if (verbose) {
+            cli::cli_alert_info("Switching to REST API...")
+          }
+          rest_engine <- private$engines$rest
+          repos_from_org <- rest_engine$get_repos_from_org(
+            org = url_encode(org),
+            output = "raw",
             verbose = verbose
           )
-          if (inherits(repos_from_org, "graphql_error")) {
-            if (verbose) {
-              cli::cli_alert_info("Switching to REST API...")
-            }
-            rest_engine <- private$engines$rest
-            repos_from_org <- rest_engine$get_repos_from_org(
-              org = url_encode(org),
-              output = "raw",
-              verbose = verbose
-            )
-          } else {
-            repos_from_org <- purrr::map(repos_from_org, function(repos_data) {
-              repos_data$path <- repos_data$node$repo_path
-              repos_data
-            })
-          }
-          private$set_cached_repos(repos_from_org, org, verbose)
+          engine_used <- rest_engine
         } else {
-          if (verbose) cli::cli_alert("Using cached repositories data...")
-          repos_from_org <- cached_repos
+          repos_from_org <- purrr::map(repos_from_org, function(repos_data) {
+            repos_data$path <- repos_data$node$repo_path
+            repos_data
+          })
         }
-        repos_names <- repos_from_org |>
-          purrr::map_vec(~ .$path)
+        private$set_cached_repos(repos_from_org, org, verbose)
+        tryCatch(
+          private$save_repos_to_storage(
+            repos_from_org, org, engine_used
+          ),
+          error = function(e) NULL
+        )
+      } else {
+        if (verbose) cli::cli_alert("Using cached repositories data...")
+        repos_from_org <- cached_repos
       }
+      if (!is.null(repos)) {
+        repos_from_org <- purrr::keep(repos_from_org, ~ .$path %in% repos)
+      }
+      repos_names <- repos_from_org |>
+        purrr::map_vec(~ .$path)
+      repo_ids <- purrr::map_chr(repos_from_org, function(repo) {
+        if (!is.null(repo$node$repo_id)) {
+          get_gitlab_repo_id(repo$node$repo_id)
+        } else {
+          as.character(repo$id)
+        }
+      })
       repos_data <- list(
-        "paths" = repos_names
+        "paths" = repos_names,
+        "repo_ids" = repo_ids
       )
       return(repos_data)
+    },
+
+    save_repos_to_storage = function(repos_from_org, org, engine) {
+      storage <- private$storage_backend
+      if (!is.null(storage) && storage$is_db()) {
+        repos_table <- engine$prepare_repos_table(repos_from_org, org)
+        if (!is.null(repos_table) && nrow(repos_table) > 0) {
+          repos_table <- dplyr::as_tibble(repos_table)
+          existing <- storage$load("repositories")
+          if (!is.null(existing)) {
+            repos_table <- dplyr::bind_rows(existing, repos_table) |>
+              dplyr::distinct(repo_id, .keep_all = TRUE)
+          }
+          class(repos_table) <- c("gitstats_repos", class(repos_table))
+          storage$save("repositories", repos_table)
+        }
+      }
     },
 
     are_non_text_files = function(file_path, host_files_structure) {
@@ -376,12 +410,13 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
                                               verbose  = TRUE,
                                               progress = TRUE) {
       if ("repo" %in% private$searching_scope) {
+        rest_engine <- private$engines$rest
         graphql_engine <- private$engines$graphql
         orgs <- graphql_engine$set_owner_type(
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        files_structure_list <- purrr::map(orgs, function(org) {
+        files_structure_list <- gitstats_map(orgs, function(org) {
           if (verbose) {
             user_info <- if (!is.null(pattern)) {
               glue::glue(
@@ -392,15 +427,14 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
             }
             show_message(
               host = private$host_name,
-              engine = "graphql",
+              engine = "rest",
               scope = set_repo_scope(org, private),
               information = user_info
             )
           }
-          owner_type <- attr(org, "type") %||% "organization"
-          graphql_engine$get_files_structure_from_org(
+          private$get_files_structure_from_repos_data(
+            rest_engine = rest_engine,
             org = org,
-            owner_type = owner_type,
             repos_data = list("paths" = private$orgs_repos[[org]]),
             pattern = pattern,
             depth = depth,
@@ -430,7 +464,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        files_table <- purrr::map(orgs, function(org) {
+        files_table <- gitstats_map(orgs, function(org) {
           if (verbose) {
             show_message(
               host = private$host_name,
@@ -467,7 +501,7 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
         )
         orgs <- result$orgs
         repos <- result$repos
-        files_table <- purrr::map(orgs, function(org) {
+        files_table <- gitstats_map(orgs, function(org) {
           if (verbose) {
             show_message(
               host = private$host_name,
@@ -495,6 +529,92 @@ GitHostGitLab <- R6::R6Class("GitHostGitLab",
         cli::cli_alert_warning("[GitLab] No files {cli_icons$file} found. Skipping pulling files content.")
         return(NULL)
       }
+    },
+
+    get_commit_sha = function(project_id, default_branch) {
+      rest_engine <- private$engines$rest
+      rest_engine$get_commit_sha_from_branch(
+        project_id = project_id,
+        default_branch = default_branch
+      )
+    },
+
+    fill_repos_commit_sha = function(repos_table, verbose = FALSE) {
+      if (is.null(repos_table) || nrow(repos_table) == 0) {
+        return(repos_table)
+      }
+      missing_sha <- is.na(repos_table[["commit_sha"]]) & nchar(repos_table[["default_branch"]]) > 0
+      if (any(missing_sha)) {
+        n_missing <- sum(missing_sha)
+        if (verbose) {
+          show_message(
+            host = private$host_name,
+            engine = "rest",
+            information = glue::glue(
+              "Fetching missing commit SHAs for {n_missing} repo{ifelse(n_missing > 1, 's', '')}"
+            )
+          )
+        }
+        for (i in which(missing_sha)) {
+          repos_table[["commit_sha"]][i] <- private$get_commit_sha(
+            project_id = repos_table[["repo_id"]][i],
+            default_branch = repos_table[["default_branch"]][i]
+          )
+        }
+      }
+      return(repos_table)
+    },
+
+    # Override parent to query repos directly by fullpath instead of
+    # fetching all repos from org/user and filtering client-side.
+    # The parent's approach is slow for GitLab because the repos_by_user
+    # query searches the entire GitLab instance.
+    get_repos_from_repos = function(add_languages, verbose, progress) {
+      if ("repo" %in% private$searching_scope) {
+        graphql_engine <- private$engines$graphql
+        orgs <- names(private$orgs_repos)
+        full_paths <- purrr::map(orgs, function(org) {
+          repos <- private$orgs_repos[[org]]
+          paste0(url_decode(org), "/", repos)
+        }) |>
+          unlist()
+        if (!private$scan_all && verbose) {
+          show_message(
+            host = private$host_name,
+            engine = "graphql",
+            scope = paste0(full_paths, collapse = ", "),
+            information = paste0("Pulling repositories ", cli_icons$repo)
+          )
+        }
+        repos_list <- graphql_engine$get_repos_by_fullpath(
+          full_paths = full_paths,
+          verbose = verbose
+        )
+        if (length(repos_list) > 0) {
+          repos_table <- graphql_engine$prepare_repos_table(repos_list)
+        } else {
+          repos_table <- NULL
+        }
+        return(repos_table)
+      }
+    },
+
+    get_all_repos = function(add_languages = TRUE, verbose = TRUE, progress = TRUE, fill_empty_sha = FALSE) {
+      if (private$scan_all && is.null(private$orgs)) {
+        private$orgs <- private$get_orgs_from_host(
+          output = "only_names",
+          verbose = verbose
+        )
+      }
+      repos_from_orgs <- private$get_repos_from_orgs(add_languages, verbose, progress)
+      repos_from_repos <- private$get_repos_from_repos(add_languages, verbose, progress)
+      repos_table <- purrr::list_rbind(
+        list(repos_from_orgs, repos_from_repos)
+      )
+      if (fill_empty_sha) {
+        repos_table <- private$fill_repos_commit_sha(repos_table, verbose = verbose)
+      }
+      return(repos_table)
     }
   )
 )

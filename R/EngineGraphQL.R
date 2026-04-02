@@ -37,7 +37,7 @@ EngineGraphQL <- R6::R6Class(
     get_issues_from_repos = function(org,
                                      repos_names,
                                      verbose) {
-      repos_list_with_issues <- purrr::map(repos_names, function(repo) {
+      repos_list_with_issues <- gitstats_map(repos_names, function(repo) {
         private$get_issues_from_one_repo(
           org = org,
           repo = repo,
@@ -95,7 +95,7 @@ EngineGraphQL <- R6::R6Class(
     get_pr_from_repos = function(org,
                                  repos_names,
                                  verbose) {
-      repos_list_with_pr <- purrr::map(repos_names, function(repo) {
+      repos_list_with_pr <- gitstats_map(repos_names, function(repo) {
         private$get_pr_from_one_repo(
           org = org,
           repo = repo,
@@ -150,6 +150,8 @@ EngineGraphQL <- R6::R6Class(
     }
   ),
   private = list(
+    owner_types_cache = list(),
+
     perform_request = function(gql_query, vars, token = private$token, verbose = TRUE) {
       response <- NULL
       response <- httr2::request(paste0(self$gql_api_url, "?")) |>
@@ -219,13 +221,6 @@ EngineGraphQL <- R6::R6Class(
         }
       }
       return(response)
-    },
-
-    filter_files_by_pattern = function(files_structure, pattern) {
-      repo_id <- attr(files_structure, "repo_id")
-      files_structure <- files_structure[grepl(paste0(pattern, collapse = "|"), files_structure)]
-      attr(files_structure, "repo_id") <- repo_id
-      return(files_structure)
     },
 
     get_path_from_files_structure = function(host_files_structure,

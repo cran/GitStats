@@ -15,7 +15,11 @@ EngineGraphQLGitLab <- R6::R6Class(
 
     set_owner_type = function(owners, verbose = TRUE) {
       user_or_org_query <- self$gql_query$user_or_org_query
-      login_types <- purrr::map(owners, function(owner) {
+      login_types <- gitstats_map(owners, function(owner) {
+        cached <- private[["owner_types_cache"]][[owner]]
+        if (!is.null(cached)) {
+          return(cached)
+        }
         response <- self$gql_response(
           gql_query = user_or_org_query,
           vars = list(
@@ -34,6 +38,7 @@ EngineGraphQLGitLab <- R6::R6Class(
         } else {
           attr(owner, "type") <- "not found"
         }
+        private[["owner_types_cache"]][[owner]] <- owner
         return(owner)
       })
       return(login_types)
@@ -152,6 +157,24 @@ EngineGraphQLGitLab <- R6::R6Class(
       }
       full_repos_list <- private$handle_graphql_error(full_repos_list, verbose)
       return(full_repos_list)
+    },
+
+    get_repos_by_fullpath = function(full_paths, verbose = TRUE) {
+      repos_list <- purrr::map(full_paths, function(full_path) {
+        response <- self$gql_response(
+          gql_query = self$gql_query$repo_by_fullpath(),
+          vars = list("fullPath" = full_path),
+          verbose = verbose
+        )
+        if (inherits(response, "graphql_error") ||
+              is.null(response$data$project)) {
+          return(NULL)
+        }
+        # Wrap in node structure to match prepare_repos_table() expectations
+        list(node = response$data$project)
+      }) |>
+        purrr::compact()
+      return(repos_list)
     },
 
     get_repos_from_org = function(org  = NULL,
@@ -337,7 +360,7 @@ EngineGraphQLGitLab <- R6::R6Class(
                                            file_paths = NULL,
                                            host_files_structure = NULL,
                                            verbose = FALSE) {
-      org_files_list <- purrr::map(repos_data$paths, function(repo) {
+      org_files_list <- gitstats_map(repos_data$paths, function(repo) {
         if (!is.null(host_files_structure)) {
           file_paths <- private$get_path_from_files_structure(
             host_files_structure = host_files_structure,
@@ -420,26 +443,6 @@ EngineGraphQLGitLab <- R6::R6Class(
       return(files_table)
     },
 
-    get_files_structure_from_org = function(org,
-                                            owner_type,
-                                            repos_data,
-                                            pattern,
-                                            depth,
-                                            verbose) {
-      files_structure <- purrr::map(repos_data$paths, function(repo) {
-        private$get_files_structure_from_repo(
-          org = org,
-          repo = repo,
-          pattern = pattern,
-          depth = depth,
-          verbose = verbose
-        )
-      })
-      names(files_structure) <- repos_data$paths
-      files_structure <- purrr::discard(files_structure, ~ length(.) == 0)
-      return(files_structure)
-    },
-
     prepare_user_table = function(user_response) {
       if (!is.null(user_response$data$user)) {
         user_data <- user_response$data$user
@@ -464,7 +467,7 @@ EngineGraphQLGitLab <- R6::R6Class(
     },
 
     get_release_logs_from_org = function(repos_names, org, verbose = TRUE) {
-      release_responses <- purrr::map(repos_names, function(repository) {
+      release_responses <- gitstats_map(repos_names, function(repository) {
         releases_from_repo_query <- self$gql_query$releases_from_repo()
         response <- self$gql_response(
           gql_query = releases_from_repo_query,
@@ -682,100 +685,6 @@ EngineGraphQLGitLab <- R6::R6Class(
         )
       }
       return(response)
-    },
-
-    get_files_tree_response = function(org, repo, file_path, verbose) {
-      files_tree_response <- self$gql_response(
-        gql_query = self$gql_query$files_tree_from_repo(),
-        vars = list(
-          "fullPath" = paste0(org, "/", repo),
-          "file_path" = file_path
-        ),
-        verbose = verbose
-      )
-      return(files_tree_response)
-    },
-
-    get_files_structure_from_repo = function(org,
-                                             repo,
-                                             pattern,
-                                             depth,
-                                             verbose) {
-      files_tree_response <- private$get_files_tree_response(
-        org = org,
-        repo = repo,
-        file_path = "",
-        verbose = verbose
-      )
-      files_and_dirs_list <- private$get_files_and_dirs(
-        files_tree_response = files_tree_response
-      )
-      if (length(files_and_dirs_list$dirs) > 0) {
-        folders_exist <- TRUE
-      } else {
-        folders_exist <- FALSE
-      }
-      all_files_and_dirs_list <- files_and_dirs_list
-      dirs <- files_and_dirs_list$dirs
-      tier <- 1
-      while (folders_exist && tier <= depth) {
-        new_dirs_list <- c()
-        for (dir in dirs) {
-          files_tree_response <- private$get_files_tree_response(
-            org = org,
-            repo = repo,
-            file_path = dir,
-            verbose = verbose
-          )
-          files_and_dirs_list <- private$get_files_and_dirs(
-            files_tree_response = files_tree_response
-          )
-          if (length(files_and_dirs_list$files) > 0) {
-            all_files_and_dirs_list$files <- append(
-              all_files_and_dirs_list$files,
-              paste0(dir, "/", files_and_dirs_list$files)
-            )
-          }
-          if (length(files_and_dirs_list$dirs) > 0) {
-            new_dirs_list <- c(new_dirs_list, paste0(dir, "/", files_and_dirs_list$dirs))
-          }
-        }
-        if (length(new_dirs_list) > 0) {
-          dirs <- new_dirs_list
-          folders_exist <- TRUE
-          tier <- tier + 1
-        } else {
-          folders_exist <- FALSE
-        }
-      }
-      if (!is.null(pattern)) {
-        files_structure <- private$filter_files_by_pattern(
-          files_structure = all_files_and_dirs_list$files,
-          pattern = pattern
-        )
-      } else {
-        files_structure <- all_files_and_dirs_list$files
-      }
-      if (!is.null(files_structure)) {
-        attr(files_structure, "repo_id") <- get_gitlab_repo_id(files_tree_response$data$project$id)
-      }
-      return(files_structure)
-    },
-
-    get_files_and_dirs = function(files_tree_response) {
-      tree_nodes <- files_tree_response$data$project$repository$tree$trees$nodes
-      blob_nodes <- files_tree_response$data$project$repository$tree$blobs$nodes
-      dirs <- purrr::map_vec(tree_nodes, ~ .$name) |>
-        unlist() |>
-        unname()
-      files <- purrr::map_vec(blob_nodes, ~ .$name) |>
-        unlist() |>
-        unname()
-      result <- list(
-        "dirs" = dirs,
-        "files" = files
-      )
-      return(result)
     },
 
     response_prepared_by_iteration = function(files_response) {

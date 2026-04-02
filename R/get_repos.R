@@ -14,6 +14,9 @@
 #'   default), `GitStats` iterates additionally over pulled repositories and
 #'   reaches to the `contributors APIs`, which makes it slower, but gives
 #'   additional information.
+#' @param add_languages A logical, `TRUE` by default. If set to `FALSE`,
+#'   languages data will not be included in the repositories output which
+#'   may speed up the process for GitLab REST engine.
 #' @param with_code A character vector, if defined, GitStats will pull
 #'   repositories with specified code phrases in code blobs.
 #' @param in_files A character vector of file names. Works when `with_code` is
@@ -29,6 +32,10 @@
 #'   output is switched off.
 #' @param progress A logical, by default set to `verbose` value. If `FALSE` no
 #'   `cli` progress bar will be displayed.
+#' @param fill_empty_sha A logical, `FALSE` by default. If `TRUE`, GitStats
+#'   will try to fetch missing `commit_sha` values (e.g. for archived GitLab
+#'   projects) via the REST Branches API. This may slow down the call for
+#'   large numbers of repositories.
 #' @return A data.frame.
 #' @examples
 #' \dontrun{
@@ -43,29 +50,34 @@
 #'   )
 #' get_repos(my_gitstats)
 #' get_repos(my_gitstats, add_contributors = FALSE)
+#' get_repos(my_gitstats, add_languages = FALSE)
 #' get_repos(my_gitstats, with_code = "Shiny", in_files = "renv.lock")
 #' get_repos(my_gitstats, with_files = "DESCRIPTION")
 #' }
 #' @export
 get_repos <- function(gitstats,
                       add_contributors = TRUE,
+                      add_languages = TRUE,
                       with_code = NULL,
                       in_files = NULL,
                       with_files = NULL,
                       language = NULL,
                       cache = TRUE,
                       verbose = FALSE,
-                      progress = TRUE) {
+                      progress = TRUE,
+                      fill_empty_sha = FALSE) {
   start_time <- Sys.time()
   repos <- gitstats$get_repos(
     add_contributors = add_contributors,
+    add_languages = add_languages,
     with_code = with_code,
     in_files = in_files,
     with_files = with_files,
     language = language,
     cache = cache,
     verbose = verbose,
-    progress = progress
+    progress = progress,
+    fill_empty_sha = fill_empty_sha
   )
   end_time <- Sys.time()
   time_taken <- end_time - start_time

@@ -73,6 +73,15 @@ GQLQueryGitLab <- R6::R6Class("GQLQueryGitLab",
         }')
     },
 
+    repo_by_fullpath = function() {
+      paste0('
+        query GetRepoByFullPath($fullPath: ID!) {
+          project(fullPath: $fullPath) {
+            ', private$project_node_fields, '
+          }
+        }')
+    },
+
     issues_from_repo = function(issues_cursor = "") {
       paste0('
       query getIssuesFromRepo ($fullPath: ID!) {
@@ -222,41 +231,6 @@ GQLQueryGitLab <- R6::R6Class("GQLQueryGitLab",
       '
     },
 
-    files_tree_from_repo = function() {
-      '
-      query GetFilesTree ($fullPath: ID!, $file_path: String!) {
-        project(fullPath: $fullPath) {
-          id
-          repository {
-            tree(path: $file_path) {
-              trees (first: 100) {
-                pageInfo{
-                  endCursor
-                  hasNextPage
-                }
-                nodes {
-                  name
-                }
-              }
-              blobs (first: 100) {
-                pageInfo{
-                  endCursor
-                  hasNextPage
-                }
-                nodes {
-                  name
-                }
-              }
-            }
-            lastCommit {
-              sha
-            }
-          }
-        }
-      }
-      '
-    },
-
     releases_from_repo = function() {
       'query GetReleasesFromRepo($project_path: ID!) {
               project(fullPath: $project_path) {
@@ -297,6 +271,37 @@ GQLQueryGitLab <- R6::R6Class("GQLQueryGitLab",
       groupMembersCount
       avatarUrl
     ',
+
+    project_node_fields =
+      '
+          repo_id: id
+          repo_name: name
+          repo_path: path
+          repo_fullpath: fullPath
+          ... on Project {
+            repository {
+              rootRef
+              lastCommit {
+                sha
+              }
+            }
+          }
+          stars: starCount
+          forks: forksCount
+          created_at: createdAt
+          last_activity_at: lastActivityAt
+          languages {
+            name
+          }
+          issues: issueStatusCounts {
+            all
+            closed
+            opened
+          }
+          namespace {
+            path: fullPath
+          }
+          repo_url: webUrl',
 
     # count in ProjectConnection GitLab >= 13.0
     # languages in Project GitLab >= 12.9

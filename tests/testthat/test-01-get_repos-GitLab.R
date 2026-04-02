@@ -15,6 +15,14 @@ test_that("repos queries are built properly", {
   )
 })
 
+test_that("repo_by_fullpath query is built properly", {
+  gl_repo_by_fullpath_query <-
+    test_gqlquery_gl$repo_by_fullpath()
+  expect_snapshot(
+    gl_repo_by_fullpath_query
+  )
+})
+
 test_that("`get_repos_page()` pulls repos page from GitLab group", {
   mockery::stub(
     test_graphql_gitlab_priv$get_repos_page,
@@ -88,6 +96,42 @@ test_that("`get_repos_from_org()` prepares formatted list", {
     )
   )
   test_mocker$cache(gl_repos_from_user)
+})
+
+test_that("`get_repos_by_fullpath()` queries repos directly by path", {
+  mockery::stub(
+    test_graphql_gitlab$get_repos_by_fullpath,
+    "self$gql_response",
+    test_fixtures$gitlab_repo_by_fullpath_response
+  )
+  gl_repos_by_path <- test_graphql_gitlab$get_repos_by_fullpath(
+    full_paths = c("mbtests/gitstatstesting")
+  )
+  expect_type(gl_repos_by_path, "list")
+  expect_length(gl_repos_by_path, 1)
+  expect_equal(
+    names(gl_repos_by_path[[1]]$node),
+    c(
+      "repo_id", "repo_name", "repo_path", "repo_fullpath", "repository",
+      "stars", "forks", "created_at", "last_activity_at",
+      "languages", "issues", "namespace", "repo_url"
+    )
+  )
+  test_mocker$cache(gl_repos_by_path)
+})
+
+test_that("`get_repos_by_fullpath()` skips repos that return NULL", {
+  null_response <- list("data" = list("project" = NULL))
+  mockery::stub(
+    test_graphql_gitlab$get_repos_by_fullpath,
+    "self$gql_response",
+    null_response
+  )
+  gl_repos_by_path <- test_graphql_gitlab$get_repos_by_fullpath(
+    full_paths = c("nonexistent/repo")
+  )
+  expect_type(gl_repos_by_path, "list")
+  expect_length(gl_repos_by_path, 0)
 })
 
 test_that("`get_repos_from_org()` does not fail when GraphQL response is not complete", {
@@ -244,6 +288,7 @@ test_that("`get_repos_languages()` works", {
   )
   gl_repos_list_with_languages <- test_rest_gitlab_priv$get_repos_languages(
     repos_list = repos_list,
+    verbose = FALSE,
     progress = FALSE
   )
   purrr::walk(gl_repos_list_with_languages, ~ expect_list_contains(., "languages"))
@@ -413,6 +458,7 @@ test_that("get_repos_from_org prints proper message", {
   gitlab_testhost_priv$orgs <- "mbtests"
   expect_snapshot(
     gl_repos_from_orgs <- gitlab_testhost_priv$get_repos_from_orgs(
+      add_languages = TRUE,
       verbose = TRUE,
       progress = FALSE
     )
@@ -435,36 +481,49 @@ test_that("GitLab Host turns to REST if GraphQL fails with error (org setup)", {
     test_mocker$use("gitlab_rest_repos_table")
   )
   gl_repos_from_orgs <- gitlab_testhost_priv$get_repos_from_orgs(
+    add_languages = TRUE,
     verbose = FALSE,
     progress = FALSE
   )
   expect_repos_table(gl_repos_from_orgs)
 })
 
-test_that("GitLab Host turns to REST if GraphQL fails with error (repo setup)", {
-  test_org <- "test_org"
-  attr(test_org, "type") <- "organization"
+test_that("`get_repos_from_repos()` queries repos directly by fullpath", {
   mockery::stub(
     gitlab_testhost_priv$get_repos_from_repos,
-    "graphql_engine$set_owner_type",
-    test_org
+    "graphql_engine$get_repos_by_fullpath",
+    test_mocker$use("gl_repos_by_path")
   )
   mockery::stub(
     gitlab_testhost_priv$get_repos_from_repos,
-    "graphql_engine$get_repos_from_org",
-    test_mocker$use("gitlab_repos_error")
-  )
-  mockery::stub(
-    gitlab_testhost_priv$get_repos_from_repos,
-    "rest_engine$prepare_repos_table",
-    test_mocker$use("gitlab_rest_repos_table")
+    "graphql_engine$prepare_repos_table",
+    test_mocker$use("gl_repos_table")
   )
   gitlab_testhost_priv$searching_scope <- "repo"
+  gitlab_testhost_priv$orgs_repos <- list("mbtests" = "gitstatstesting")
   gl_repos_from_repos <- gitlab_testhost_priv$get_repos_from_repos(
+    add_languages = TRUE,
     verbose = FALSE,
     progress = FALSE
   )
   expect_repos_table(gl_repos_from_repos)
+  test_mocker$cache(gl_repos_from_repos)
+})
+
+test_that("`get_repos_from_repos()` returns NULL when no repos found", {
+  mockery::stub(
+    gitlab_testhost_priv$get_repos_from_repos,
+    "graphql_engine$get_repos_by_fullpath",
+    list()
+  )
+  gitlab_testhost_priv$searching_scope <- "repo"
+  gitlab_testhost_priv$orgs_repos <- list("mbtests" = "nonexistent")
+  gl_repos_from_repos <- gitlab_testhost_priv$get_repos_from_repos(
+    add_languages = TRUE,
+    verbose = FALSE,
+    progress = FALSE
+  )
+  expect_null(gl_repos_from_repos)
 })
 
 test_that("GitLab Host prints message when turning to REST engine (from orgs)", {
@@ -481,33 +540,29 @@ test_that("GitLab Host prints message when turning to REST engine (from orgs)", 
   gitlab_testhost_priv$searching_scope <- "org"
   expect_snapshot(
     gl_repos_from_orgs <- gitlab_testhost_priv$get_repos_from_orgs(
+      add_languages = TRUE,
       verbose = TRUE,
       progress = FALSE
     )
   )
 })
 
-test_that("GitLab Host prints message when turning to REST engine (from repos)", {
-  test_org <- "test_org"
-  attr(test_org, "type") <- "organization"
+test_that("`get_repos_from_repos()` prints proper message", {
   mockery::stub(
     gitlab_testhost_priv$get_repos_from_repos,
-    "graphql_engine$set_owner_type",
-    test_org
+    "graphql_engine$get_repos_by_fullpath",
+    test_mocker$use("gl_repos_by_path")
   )
   mockery::stub(
     gitlab_testhost_priv$get_repos_from_repos,
-    "graphql_engine$get_repos_from_org",
-    test_mocker$use("gitlab_repos_error")
-  )
-  mockery::stub(
-    gitlab_testhost_priv$get_repos_from_repos,
-    "rest_engine$prepare_repos_table",
-    test_mocker$use("gitlab_rest_repos_table")
+    "graphql_engine$prepare_repos_table",
+    test_mocker$use("gl_repos_table")
   )
   gitlab_testhost_priv$searching_scope <- "repo"
+  gitlab_testhost_priv$orgs_repos <- list("mbtests" = "gitstatstesting")
   expect_snapshot(
     gl_repos_from_repos <- gitlab_testhost_priv$get_repos_from_repos(
+      add_languages = TRUE,
       verbose = TRUE,
       progress = FALSE
     )
@@ -695,3 +750,298 @@ test_that("get_repos_data prints message when turns to REST engine", {
     )
   )
 })
+
+# ---- commit_sha fallback for archived projects ----
+
+test_that("GraphQL engine returns NA commit_sha for archived projects with null lastCommit", {
+  repos_with_archived <- list(
+    gitlab_project_node,
+    gitlab_archived_project_node
+  )
+  gl_repos_table <- test_graphql_gitlab$prepare_repos_table(
+    repos_list = repos_with_archived,
+    org = "mbtests"
+  )
+  expect_repos_table(gl_repos_table)
+  expect_equal(gl_repos_table$commit_sha[1], "1a2bc3d4e5")
+  expect_true(is.na(gl_repos_table$commit_sha[2]))
+})
+
+test_that("`get_commit_sha_from_branch()` retrieves SHA from branches API", {
+  mockery::stub(
+    test_rest_gitlab$get_commit_sha_from_branch,
+    "self$response",
+    test_fixtures$gitlab_branch_response
+  )
+  commit_sha <- test_rest_gitlab$get_commit_sha_from_branch(
+    project_id = "99999999",
+    default_branch = "main"
+  )
+  expect_equal(commit_sha, "abcdef1234567890")
+  test_mocker$cache(commit_sha)
+})
+
+test_that("`get_commit_sha_from_branch()` returns NA when branch is empty", {
+  sha <- test_rest_gitlab$get_commit_sha_from_branch(
+    project_id = "99999999",
+    default_branch = ""
+  )
+  expect_true(is.na(sha))
+})
+
+test_that("`get_commit_sha_from_branch()` returns NA when branch is NULL", {
+  sha <- test_rest_gitlab$get_commit_sha_from_branch(
+    project_id = "99999999",
+    default_branch = NULL
+  )
+  expect_true(is.na(sha))
+})
+
+test_that("`get_commit_sha_from_branch()` returns NA on API error", {
+  rest_error_response <- list("message" = "404 Not Found")
+  class(rest_error_response) <- c("rest_error", "404_not_found", class(rest_error_response))
+  mockery::stub(
+    test_rest_gitlab$get_commit_sha_from_branch,
+    "self$response",
+    rest_error_response
+  )
+  sha <- test_rest_gitlab$get_commit_sha_from_branch(
+    project_id = "99999999",
+    default_branch = "main"
+  )
+  expect_true(is.na(sha))
+})
+
+test_that("get_commit_sha works on host level", {
+  gitlab_testhost_fill <- create_gitlab_testhost(
+    orgs = "mbtests",
+    mode = "private"
+  )
+  mockery::stub(
+    gitlab_testhost_fill$get_commit_sha,
+    "rest_engine$get_commit_sha_from_branch",
+    test_mocker$use("commit_sha")
+  )
+  commit_sha <- gitlab_testhost_fill$get_commit_sha(
+    project_id = "99999999",
+    default_branch = "main"
+  )
+  expect_equal(commit_sha, "abcdef1234567890")
+})
+
+test_that("fill_repos_commit_sha() returns empty table",{
+  gitlab_testhost_fill <- create_gitlab_testhost(
+    orgs = "mbtests",
+    mode = "private"
+  )
+  repos_table <- data.frame()
+  expect_equal(
+    gitlab_testhost_fill$fill_repos_commit_sha(repos_table, verbose = FALSE),
+    data.frame()
+  )  
+})
+
+test_that("`fill_repos_commit_sha()` fills missing commit_sha via REST", {
+  gitlab_testhost_fill <- create_gitlab_testhost(
+    orgs = "mbtests",
+    mode = "private"
+  )
+  repos_table <- data.frame(
+    repo_id = c("61399846", "99999999"),
+    repo_name = c("gitstatstesting", "archived-project"),
+    repo_fullpath = c("mbtests/gitstatstesting", "mbtests/archived-project"),
+    default_branch = c("main", "main"),
+    stars = c(8L, 2L),
+    forks = c(3L, 0L),
+    created_at = as.POSIXct(c("2023-09-18", "2022-01-10")),
+    last_activity_at = as.POSIXct(c("2024-09-18", "2023-06-15")),
+    languages = c("Python, R", "R"),
+    issues_open = c(2L, 0L),
+    issues_closed = c(8L, 3L),
+    organization = c("mbtests", "mbtests"),
+    repo_url = c("https://gitlab.com/mbtests/gitstatstesting",
+                 "https://gitlab.com/mbtests/archived-project"),
+    commit_sha = c("1a2bc3d4e5", NA_character_),
+    stringsAsFactors = FALSE
+  )
+  mockery::stub(
+    gitlab_testhost_fill$fill_repos_commit_sha,
+    "private$get_commit_sha",
+    test_mocker$use("commit_sha")
+  )
+  expect_snapshot(
+    repos_commit_sha <- gitlab_testhost_fill$fill_repos_commit_sha(repos_table, verbose = TRUE)
+  )  
+  expect_equal(repos_commit_sha$commit_sha[1], "1a2bc3d4e5")
+  expect_equal(repos_commit_sha$commit_sha[2], "abcdef1234567890")
+  test_mocker$cache(repos_commit_sha)
+})
+
+test_that("`fill_repos_commit_sha()` skips repos with empty default_branch", {
+  gitlab_testhost_fill <- create_gitlab_testhost(
+    orgs = "mbtests",
+    mode = "private"
+  )
+  repos_table <- data.frame(
+    repo_id = c("99999999"),
+    repo_name = c("empty-repo"),
+    repo_fullpath = c("mbtests/empty-repo"),
+    default_branch = c(""),
+    stars = 0L,
+    forks = 0L,
+    created_at = as.POSIXct("2022-01-10"),
+    last_activity_at = as.POSIXct("2023-06-15"),
+    languages = "",
+    issues_open = 0L,
+    issues_closed = 0L,
+    organization = "mbtests",
+    repo_url = "https://gitlab.com/mbtests/empty-repo",
+    commit_sha = NA_character_,
+    stringsAsFactors = FALSE
+  )
+  result <- gitlab_testhost_fill$fill_repos_commit_sha(repos_table, verbose = FALSE)
+  expect_true(is.na(result$commit_sha[1]))
+})
+
+test_that("get_all_repos() works", {
+  gitlab_testhost_fill <- create_gitlab_testhost(
+    orgs = "mbtests",
+    mode = "private"
+  )
+  mockery::stub(
+    gitlab_testhost_fill$get_all_repos,
+    "private$get_repos_from_orgs",
+    test_mocker$use("gl_repos_from_orgs")
+  )
+  mockery::stub(
+    gitlab_testhost_fill$get_all_repos,
+    "private$get_repos_from_repos",
+    test_mocker$use("gl_repos_from_repos")
+  )
+  mockery::stub(
+    gitlab_testhost_fill$get_all_repos,
+    "private$fill_repos_commit_sha",
+    test_mocker$use("repos_commit_sha")
+  )
+  gitlab_repos <- gitlab_testhost_fill$get_all_repos(add_languages = TRUE, fill_empty_sha = TRUE)
+  expect_repos_table(gitlab_repos)
+  expect_equal(gitlab_repos$commit_sha[1], "1a2bc3d4e5")
+  expect_equal(gitlab_repos$commit_sha[2], "abcdef1234567890")
+})
+
+# ---- EngineGraphQLGitLab: get_repo_name_from_url ----
+
+test_that("`get_repo_name_from_url()` extracts repo name from URL", {
+  expect_equal(
+    test_graphql_gitlab_priv$get_repo_name_from_url(
+      "https://gitlab.com/mbtests/gitstatstesting"
+    ),
+    "gitstatstesting"
+  )
+})
+
+test_that("`get_repo_name_from_url()` handles nested group paths", {
+  expect_equal(
+    test_graphql_gitlab_priv$get_repo_name_from_url(
+      "https://gitlab.com/group/subgroup/my-repo"
+    ),
+    "my-repo"
+  )
+})
+
+# ---- EngineGraphQLGitLab: prepare_files_table_row ----
+
+test_that("`prepare_files_table_row()` builds files data.frame from project", {
+  project <- test_fixtures$gitlab_file_repo_response$data$project
+  files_row <- test_graphql_gitlab_priv$prepare_files_table_row(
+    project = project,
+    org = "mbtests"
+  )
+  expect_s3_class(files_row, "data.frame")
+  expect_true(nrow(files_row) > 0)
+  expect_true(all(c("repo_name", "file_path", "file_content", "repo_url") %in% names(files_row)))
+  expect_equal(files_row$organization[1], "mbtests")
+})
+
+# ---- EngineGraphQLGitLab: set_owner_type ----
+
+test_that("`set_owner_type()` identifies organization (group) type", {
+  gl_group_response <- list(
+    "data" = list(
+      "user" = NULL,
+      "group" = list("__typename" = "Group", "fullPath" = "mbtests")
+    )
+  )
+  mockery::stub(
+    test_graphql_gitlab$set_owner_type,
+    "self$gql_response",
+    gl_group_response
+  )
+  result <- test_graphql_gitlab$set_owner_type(
+    owners = "mbtests_org_test",
+    verbose = FALSE
+  )
+  expect_equal(attr(result[[1]], "type"), "organization")
+})
+
+test_that("`set_owner_type()` identifies user type", {
+  gl_user_response <- list(
+    "data" = list(
+      "user" = list("__typename" = "User", "username" = "test_user"),
+      "group" = NULL
+    )
+  )
+  mockery::stub(
+    test_graphql_gitlab$set_owner_type,
+    "self$gql_response",
+    gl_user_response
+  )
+  result <- test_graphql_gitlab$set_owner_type(
+    owners = "test_user_type_test",
+    verbose = FALSE
+  )
+  expect_equal(attr(result[[1]], "type"), "user")
+})
+
+test_that("`set_owner_type()` returns 'not found' when owner does not exist", {
+  mockery::stub(
+    test_graphql_gitlab$set_owner_type,
+    "self$gql_response",
+    list("data" = list("user" = NULL, "group" = NULL))
+  )
+  result <- test_graphql_gitlab$set_owner_type(
+    owners = "nonexistent_owner_test",
+    verbose = FALSE
+  )
+  expect_equal(attr(result[[1]], "type"), "not found")
+})
+
+# ---- GitHostGitLab: get_repo_url_from_response with type "api" ----
+
+test_that("`get_repo_url_from_response()` returns api URLs", {
+  gl_repo_api_urls <- gitlab_testhost_priv$get_repo_url_from_response(
+    search_response = test_mocker$use("gl_repos_raw_output"),
+    type = "api",
+    progress = FALSE
+  )
+  expect_gt(length(gl_repo_api_urls), 0)
+  expect_type(gl_repo_api_urls, "character")
+  expect_true(all(grepl("api", gl_repo_api_urls)))
+})
+
+# ---- GitHostGitLab: check_if_public ----
+
+test_that("`check_if_public()` sets TRUE for public gitlab.com", {
+  gitlab_testhost_priv$check_if_public(NULL)
+  expect_true(gitlab_testhost_priv$is_public)
+  gitlab_testhost_priv$check_if_public("https://gitlab.com")
+  expect_true(gitlab_testhost_priv$is_public)
+})
+
+test_that("`check_if_public()` sets FALSE for custom host", {
+  gitlab_testhost_priv$check_if_public("https://internal-gitlab.company.com")
+  expect_false(gitlab_testhost_priv$is_public)
+  # Reset to default
+  gitlab_testhost_priv$check_if_public(NULL)
+})
+

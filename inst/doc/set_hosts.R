@@ -21,6 +21,19 @@ knitr::opts_chunk$set(
 ## ----eval = FALSE-------------------------------------------------------------
 # git_stats <- create_gitstats() |>
 #   set_github_host(
+#     host = "github.internal.com",
+#     orgs = c("org_1", "org_2", "org_3"),
+#     token = Sys.getenv("YOUR_GITHUB_PAT")
+#   ) |>
+#   set_gitlab_host(
+#     host = "internal.host.com",
+#     orgs = c("internal_org"),
+#     token = Sys.getenv("YOUR_GITLAB_PAT")
+#   )
+
+## ----eval = FALSE-------------------------------------------------------------
+# git_stats <- create_gitstats() |>
+#   set_github_host(
 #     orgs = c("r-world-devs", "openpharma"),
 #     token = Sys.getenv("GITHUB_PAT")
 #   ) |>
@@ -46,6 +59,17 @@ knitr::opts_chunk$set(
 #     orgs = "openpharma",
 #     repos = c("r-world-devs/GitStats", "r-world-devs/shinyCohortBuilder"),
 #     token = Sys.getenv("GITHUB_PAT")
+#   )
+
+## ----eval = FALSE-------------------------------------------------------------
+# git_stats <- create_gitstats() |>
+#   set_github_host(
+#     host = "github.internal.com",
+#     token = Sys.getenv("YOUR_GITHUB_PAT")
+#   ) |>
+#   set_gitlab_host(
+#     host = "internal.host.com",
+#     token = Sys.getenv("YOUR_GITLAB_PAT")
 #   )
 
 ## ----eval = FALSE-------------------------------------------------------------

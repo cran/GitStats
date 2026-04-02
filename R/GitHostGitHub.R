@@ -165,7 +165,7 @@ GitHostGitHub <- R6::R6Class(
                                      progress) {
       if ("org" %in% private$searching_scope) {
         graphql_engine <- private$engines$graphql
-        commits_table <- purrr::map(private$orgs, function(org) {
+        commits_table <- gitstats_map(private$orgs, function(org) {
           commits_table_org <- NULL
           repos_data <- private$get_repos_data(
             org = org,
@@ -205,7 +205,7 @@ GitHostGitHub <- R6::R6Class(
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        commits_table <- purrr::map(orgs, function(org) {
+        commits_table <- gitstats_map(orgs, function(org) {
           commits_table_org <- NULL
           if (!private$scan_all && verbose) {
             show_message(
@@ -240,7 +240,7 @@ GitHostGitHub <- R6::R6Class(
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        files_table <- purrr::map(orgs, function(org) {
+        files_table <- gitstats_map(orgs, function(org) {
           owner_type <- attr(org, "type") %||% "organization"
           repos_data <- private$get_repos_data(
             org = org,
@@ -282,7 +282,7 @@ GitHostGitHub <- R6::R6Class(
         )
         orgs <- result$orgs
         repos <- result$repos
-        files_table <- purrr::map(orgs, function(org) {
+        files_table <- gitstats_map(orgs, function(org) {
           owner_type <- attr(org, "type") %||% "organization"
           repos_data <- private$get_repos_data(
             org = org,
@@ -322,13 +322,13 @@ GitHostGitHub <- R6::R6Class(
                                               verbose  = TRUE,
                                               progress = TRUE) {
       if ("repo" %in% private$searching_scope) {
+        rest_engine <- private$engines$rest
         graphql_engine <- private$engines$graphql
         orgs <- graphql_engine$set_owner_type(
           owners = names(private$orgs_repos),
           verbose = verbose
         )
-        files_structure_list <- purrr::map(orgs, function(org) {
-          owner_type <- attr(org, "type") %||% "organization"
+        files_structure_list <- gitstats_map(orgs, function(org) {
           repos_data <- private$get_repos_data(
             org = org,
             repos = private$orgs_repos[[org]],
@@ -344,14 +344,14 @@ GitHostGitHub <- R6::R6Class(
             }
             show_message(
               host = private$host_name,
-              engine = "graphql",
+              engine = "rest",
               scope = set_repo_scope(org, private),
               information = user_info
             )
           }
-          graphql_engine$get_files_structure_from_org(
+          private$get_files_structure_from_repos_data(
+            rest_engine = rest_engine,
             org = org,
-            owner_type = owner_type,
             repos_data = repos_data,
             pattern = pattern,
             depth = depth,
@@ -385,6 +385,12 @@ GitHostGitHub <- R6::R6Class(
           verbose = verbose
         )
         private$set_cached_repos(repos_from_org, org, verbose)
+        tryCatch(
+          private$save_repos_to_storage(
+            repos_from_org, org, graphql_engine
+          ),
+          error = function(e) NULL
+        )
       } else {
         if (verbose) cli::cli_alert("[{org}] Using cached repositories data...")
         repos_from_org <- cached_repos
@@ -395,9 +401,27 @@ GitHostGitHub <- R6::R6Class(
       }
       repos_data <- list(
         "paths" = purrr::map(repos_from_org, ~ .$repo_path),
-        "def_branches" = purrr::map(repos_from_org, ~ .$default_branch$name)
+        "def_branches" = purrr::map(repos_from_org, ~ .$default_branch$name),
+        "repo_ids" = purrr::map_chr(repos_from_org, ~ .$repo_id)
       )
       return(repos_data)
+    },
+
+    save_repos_to_storage = function(repos_from_org, org, engine) {
+      storage <- private$storage_backend
+      if (!is.null(storage) && storage$is_db()) {
+        repos_table <- engine$prepare_repos_table(repos_from_org, org)
+        if (!is.null(repos_table) && nrow(repos_table) > 0) {
+          repos_table <- dplyr::as_tibble(repos_table)
+          existing <- storage$load("repositories")
+          if (!is.null(existing)) {
+            repos_table <- dplyr::bind_rows(existing, repos_table) |>
+              dplyr::distinct(repo_id, .keep_all = TRUE)
+          }
+          class(repos_table) <- c("gitstats_repos", class(repos_table))
+          storage$save("repositories", repos_table)
+        }
+      }
     },
 
     set_repo_url = function(repo_fullname) {
